@@ -17,3 +17,10 @@ internal sealed class CompensationEntry(Action undo) : JournalEntry
 {
     public override void Undo() => undo();
 }
+
+/// <summary>The value a generated property held before its first write in a scope, and how to write it back.</summary>
+internal sealed class PropertyEntry<TOwner, T>(TOwner owner, T previous, Action<TOwner, T> restore) : JournalEntry
+    where TOwner : class
+{
+    public override void Undo() => restore(owner, previous);
+}

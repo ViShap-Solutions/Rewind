@@ -70,21 +70,23 @@ Every file under `internal/` states its class at its head (`internal/README.md`)
 - `internal/performance/` — *plan.* Optimization proposals from measurements, for the owner to decide.
 - `internal/Development-Workflow.md` — *operational* (Russian). Never edited by an agent unless the owner asks.
 
-Current state: **B0–B2 closed; B3 gate holds — awaiting commit.** Core holds the engine of contract §4–§7 and the
-collections of §8 (`RewindList<T>`, `RewindDictionary<TKey, TValue>`, `RewindSet<T>`: each mutation records its
-inverse; `Clear` in a scope detaches the storage). Every QA checkpoint of B1–B3 has its test and INV-01…INV-12 are
-pinned. `Api/PublicSurfaceTests` holds the exported surface to contract §3.1 and requires XML documentation;
-`Api/DocumentationExampleTests` compiles and runs every documentation example. The generator registers an empty
-pipeline. The Testing project has no code yet. Next: the owner may tag `v1.0.0-alpha.1`; then B4 (generator,
-`rewind_generator`).
+Current state: **B0–B3 closed; B4 gate holds — awaiting commit.** Core holds the engine of contract §4–§7, the
+collections of §8, the attributes `[Rewindable]`/`[RewindIgnore]` and the seam `ViShap.Rewind.Contracts.RewindProperty`.
+The generator implements the `partial` properties of a `[Rewindable]` class through that seam; `RewindableAnalyzer`
+reports RWD0001–RWD0005 from the same planner. Every QA checkpoint of B1–B4 has its test and INV-01…INV-13 are
+pinned. The Testing project has no code yet. Next: `v1.0.0-alpha.1` on B4's merge commit (D-24), then B5
+(analyzers RWD1001–RWD1005).
 
 ## Projects
 
 - `ViShap.Rewind.Core` — everything that runs. No package dependency. `InternalsVisibleTo` the core tests, the
   Testing package and the benchmarks (in the `.csproj`).
 - `ViShap.Rewind.Generator` — Roslyn incremental generator and analyzers, `netstandard2.0`, packed to
-  `analyzers/dotnet/cs`. Runs only in the compiler; no shipped assembly references it. Diagnostics `RWD0001`… for
-  the generator, `RWD1001`… for analyzers; release tracking in `AnalyzerReleases.*.md`.
+  `analyzers/dotnet/cs`. Runs only in the compiler; no shipped assembly references it. `RewindPlanner` holds every
+  rule; `RewindGenerator` emits through `RewindEmitter` from equatable `Model/` plans; `RewindableAnalyzer` reports
+  `RWD0001`… from the same planner (a generator-reported diagnostic cannot be suppressed by `#pragma`). `RWD1001`…
+  are the analyzers of B5. Release tracking in `AnalyzerReleases.*.md`; snapshots of emitted code in
+  `tests/ViShap.Rewind.Generator.Tests/Snapshots/`, reviewed, never refreshed to make a test pass.
 - `ViShap.Rewind.Testing` — tools for the consumer's tests (contract §14). Depends on Core; not in the
   meta-package; packed by CD from B10.
 - `ViShap.Rewind` — meta-package: references Core and Generator, ships no code.

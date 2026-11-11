@@ -12,6 +12,8 @@ public sealed class DocumentationExampleTests
         Assert.Contains("docs/scopes.md", pages);
         Assert.Contains("docs/effects.md", pages);
         Assert.Contains("docs/exceptions.md", pages);
+        Assert.Contains("docs/collections.md", pages);
+        Assert.Contains("docs/rewindable-types.md", pages);
         Assert.Contains("README.md", pages);
         Assert.Contains("src/ViShap.Rewind.Core/CORE-README.md", pages);
         Assert.Contains("src/ViShap.Rewind/METAPACK-README.md", pages);

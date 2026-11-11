@@ -4,6 +4,7 @@ using System.Text.RegularExpressions;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Diagnostics;
 using ViShap.Rewind.Generator;
 
 namespace ViShap.Rewind.Tests.Fixtures;
@@ -65,8 +66,8 @@ public static partial class CodeExamples
 
     /// <summary>
     /// Compiles <paramref name="example"/> as a consumer project of the meta-package would: implicit usings, nullable
-    /// reference types, the latest language version and the source generator. Returns the assembly, or the errors and
-    /// warnings that prevented it.
+    /// reference types, the latest language version, the source generator and its analyzer. Returns the assembly, or the
+    /// errors and warnings that prevented it.
     /// </summary>
     public static (byte[]? Assembly, IReadOnlyList<Diagnostic> Problems) Compile(CodeExample example)
     {
@@ -87,7 +88,8 @@ public static partial class CodeExamples
 
         using var output = new MemoryStream();
         var result = generated.Emit(output);
-        var problems = generatorDiagnostics.Concat(result.Diagnostics)
+        var analyzerDiagnostics = generated.WithAnalyzers([new RewindableAnalyzer()]).GetAnalyzerDiagnosticsAsync().GetAwaiter().GetResult();
+        var problems = generatorDiagnostics.Concat(result.Diagnostics).Concat(analyzerDiagnostics)
             .Where(diagnostic => diagnostic.Severity >= DiagnosticSeverity.Warning)
             .ToList();
 

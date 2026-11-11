@@ -1,0 +1,2 @@
+# Generator snapshots are compared byte for byte, with LF line endings
+*.g.cs.txt text eol=lf

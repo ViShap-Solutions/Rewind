@@ -15,13 +15,13 @@ For tests, add `ViShap.Rewind.Testing` to the test project.
 ```csharp
 using ViShap.Rewind;
 
-var balance = new RewindCell<decimal>(100m);
+var account = new Account { Balance = 100m };
 
 try
 {
     Rewind.Run(() =>
     {
-        balance.Value -= 30m;
+        account.Balance -= 30m;
         throw new InvalidOperationException("Payment declined");
     });
 }
@@ -29,5 +29,11 @@ catch (InvalidOperationException)
 {
 }
 
-Console.WriteLine(balance.Value); // 100
+Console.WriteLine(account.Balance); // 100
+
+[Rewindable]
+public partial class Account
+{
+    public partial decimal Balance { get; set; }
+}
 ```
