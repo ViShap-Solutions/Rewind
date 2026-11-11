@@ -1,0 +1,34 @@
+static class Rewind
+    RewindScope? Current { get; }
+    RewindScope Begin()
+    void Run(Action action)
+    void Run(Action<RewindScope> action)
+    void Run<TState>(TState state, Action<TState> action)
+    void Run<TOperation>(TOperation operation) where TOperation : IRewindOperation
+    TResult Run<TResult>(Func<TResult> func)
+    TResult Run<TResult>(Func<RewindScope, TResult> func)
+sealed class RewindScope : IDisposable
+    int Depth { get; }
+    bool IsActive { get; }
+    void AfterCommit(Action action)
+    void AfterRollback(Action action)
+    void Effect(Action do, Action undo)
+    void Commit()
+    void Dispose()
+interface IRewindOperation
+    void Execute()
+sealed class RewindCell<T>
+    RewindCell()
+    RewindCell(T value)
+    T Value { get; set; }
+    string ToString()
+abstract class RewindException : Exception
+sealed class RewindScopeException : RewindException
+    RewindScopeException(string message)
+sealed class RewindCompensationException : RewindException
+    RewindCompensationException(Exception? originalException, IReadOnlyList<Exception> failures)
+    Exception? OriginalException { get; }
+    IReadOnlyList<Exception> Failures { get; }
+sealed class RewindEffectException : RewindException
+    RewindEffectException(IReadOnlyList<Exception> failures)
+    IReadOnlyList<Exception> Failures { get; }

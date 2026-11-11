@@ -6,6 +6,7 @@
     <RootNamespace>ViShap.Rewind.Generator</RootNamespace>
     <IsRoslynComponent>true</IsRoslynComponent>
     <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <IsPackable>true</IsPackable>
     <PackageId>ViShap.Rewind.Generator</PackageId>
     <Description>The source generator and analyzers of ViShap.Rewind. They run in the compiler; no shipped assembly references them.</Description>
