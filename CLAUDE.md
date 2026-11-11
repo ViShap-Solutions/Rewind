@@ -44,9 +44,10 @@ the owner, every agent and every skill; follow it for anything about how work mo
 `internal/` is **git-ignored**: it exists on the owner's machine and in Claude Code sessions, never in the public
 repository. Nothing committed — `src/`, `tests/`, `docs/`, the package READMEs, XML documentation — cites it.
 
-`docs/` is the consumer documentation, one page per subject. Every `csharp` block in `docs/` and in the package
-READMEs (`src/*/*-README.md`) is a complete example that compiles against the current code (from B2,
-`Api/DocumentationExampleTests` enforces it). No page carries an adjective about performance
+`docs/` is the consumer documentation, one page per subject. Every `csharp` block in `docs/`, `README.md` and the
+package READMEs (`src/*/*-README.md`) is a complete example that compiles against the current code;
+`Api/DocumentationExampleTests` compiles each one and runs those with top-level statements. A change to the public
+surface of Core changes contract §3.1 and `tests/ViShap.Rewind.Core.Tests/Api/PublicSurface.Core.txt` together. No page carries an adjective about performance
 (`internal/Benchmark-Plan.md` §9).
 
 Every file under `internal/` states its class at its head (`internal/README.md`): **normative**, **plan**,
@@ -69,12 +70,12 @@ Every file under `internal/` states its class at its head (`internal/README.md`)
 - `internal/performance/` — *plan.* Optimization proposals from measurements, for the owner to decide.
 - `internal/Development-Workflow.md` — *operational* (Russian). Never edited by an agent unless the owner asks.
 
-Current state: **B0 closed; B1 gate holds — awaiting commit.** The Core engine of contract §4–§7 (`Rewind`,
-`RewindScope`, `RewindCell<T>`, `IRewindOperation`, the four exceptions, `Engine/`) is proven checkpoint by
-checkpoint: every QA checkpoint of B1 has its test, INV-01…INV-12 are pinned, and `docs/scopes.md`,
-`docs/effects.md`, `docs/exceptions.md` are written. The generator registers an empty pipeline and is built against
-Roslyn 5.0.0, the minimum consumer compiler. The Testing project has no code yet. Next: B2 (public surface and
-executable documentation examples).
+Current state: **B0, B1 closed; B2 gate holds — awaiting commit.** The Core engine of contract §4–§7 is proven
+checkpoint by checkpoint and INV-01…INV-12 are pinned. `Api/PublicSurfaceTests` compares the exported surface of Core
+with `Api/PublicSurface.Core.txt` (the same lines as contract §3.1) and requires XML documentation for every member;
+`Api/DocumentationExampleTests` compiles every `csharp` block of `docs/`, `README.md` and the package READMEs with
+Roslyn and the generator, and runs the top-level ones. The generator registers an empty pipeline. The Testing
+project has no code yet. Next: B3 (collections; owner question Q-04 first).
 
 ## Projects
 

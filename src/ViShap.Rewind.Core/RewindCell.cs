@@ -47,6 +47,7 @@ public sealed class RewindCell<T>
 
     internal void Restore(T value) => _value = value;
 
-    /// <summary>Returns the text of the current value, or an empty string when it is <see langword="null"/>.</summary>
+    /// <summary>Returns the text of the current value.</summary>
+    /// <returns>The result of the value's <see cref="object.ToString"/>, or an empty string when the value is <see langword="null"/>.</returns>
     public override string ToString() => _value?.ToString() ?? string.Empty;
 }

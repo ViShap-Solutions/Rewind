@@ -5,7 +5,7 @@ public abstract class RewindException : Exception
 {
     /// <summary>Creates the exception with a message.</summary>
     /// <param name="message">What went wrong.</param>
-    protected RewindException(string message)
+    private protected RewindException(string message)
         : base(message)
     {
     }
@@ -13,7 +13,7 @@ public abstract class RewindException : Exception
     /// <summary>Creates the exception with a message and the exception that caused it.</summary>
     /// <param name="message">What went wrong.</param>
     /// <param name="innerException">The exception that caused it.</param>
-    protected RewindException(string message, Exception? innerException)
+    private protected RewindException(string message, Exception? innerException)
         : base(message, innerException)
     {
     }
