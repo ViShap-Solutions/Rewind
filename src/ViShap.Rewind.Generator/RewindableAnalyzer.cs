@@ -28,7 +28,7 @@ public sealed class RewindableAnalyzer : DiagnosticAnalyzer
             static symbolContext =>
             {
                 var type = (INamedTypeSymbol)symbolContext.Symbol;
-                if (!RewindPlanner.IsRewindable(type))
+                if (!TypeRules.IsRewindable(type))
                 {
                     return;
                 }

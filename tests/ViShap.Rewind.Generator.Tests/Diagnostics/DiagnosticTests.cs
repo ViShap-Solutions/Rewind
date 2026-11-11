@@ -244,7 +244,11 @@ public sealed class DiagnosticTests
     {
         var unshipped = File.ReadAllText(Path.Combine(ProjectRoot(), "src", "ViShap.Rewind.Generator", "AnalyzerReleases.Unshipped.md"));
 
-        foreach (var (id, severity) in new[] { ("RWD0001", "Error"), ("RWD0002", "Warning"), ("RWD0003", "Error"), ("RWD0004", "Warning"), ("RWD0005", "Error") })
+        foreach (var (id, severity) in new[]
+        {
+            ("RWD0001", "Error"), ("RWD0002", "Warning"), ("RWD0003", "Error"), ("RWD0004", "Warning"), ("RWD0005", "Error"),
+            ("RWD1001", "Warning"), ("RWD1002", "Warning"), ("RWD1003", "Error"), ("RWD1004", "Warning"), ("RWD1005", "Warning"),
+        })
         {
             Assert.Matches($@"(?m)^{id}\s*\|\s*ViShap\.Rewind\s*\|\s*{severity}\s*\|", unshipped);
         }
@@ -256,7 +260,13 @@ public sealed class DiagnosticTests
         var page = File.ReadAllText(Path.Combine(ProjectRoot(), "docs", "diagnostics.md"));
         var readme = File.ReadAllText(Path.Combine(ProjectRoot(), "src", "ViShap.Rewind.Generator", "GENERATOR-README.md"));
 
-        foreach (var descriptor in new RewindableAnalyzer().SupportedDiagnostics)
+        var descriptors = typeof(RewindableAnalyzer).Assembly.GetTypes()
+            .Where(type => typeof(Microsoft.CodeAnalysis.Diagnostics.DiagnosticAnalyzer).IsAssignableFrom(type) && !type.IsAbstract)
+            .SelectMany(type => ((Microsoft.CodeAnalysis.Diagnostics.DiagnosticAnalyzer)Activator.CreateInstance(type)!).SupportedDiagnostics)
+            .ToList();
+
+        Assert.Equal(10, descriptors.Count);
+        foreach (var descriptor in descriptors)
         {
             Assert.Equal($"https://github.com/ViShap-Solutions/Rewind/blob/main/docs/diagnostics.md#{descriptor.Id.ToLowerInvariant()}", descriptor.HelpLinkUri);
             Assert.Matches($@"(?m)^## {descriptor.Id}\r?$", page);

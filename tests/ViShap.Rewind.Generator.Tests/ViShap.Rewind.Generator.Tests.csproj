@@ -10,6 +10,7 @@
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" />
   </ItemGroup>
 
   <ItemGroup>
@@ -18,6 +19,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\ViShap.Rewind.Generator\ViShap.Rewind.Generator.csproj" />
+    <ProjectReference Include="..\..\src\ViShap.Rewind.Generator.CodeFixes\ViShap.Rewind.Generator.CodeFixes.csproj" />
     <ProjectReference Include="..\..\src\ViShap.Rewind.Core\ViShap.Rewind.Core.csproj" />
   </ItemGroup>
 

@@ -125,7 +125,9 @@ public sealed class RunTests
         Assert.Throws<RewindScopeException>(() => Rewind.Run(() =>
         {
             cell.Value = 2;
+#pragma warning disable RWD1001 // The test leaves the scope open to prove that Run rolls it back.
             Rewind.Begin();
+#pragma warning restore RWD1001
             cell.Value = 3;
         }));
 
@@ -201,7 +203,9 @@ public sealed class RunTests
         var thrown = Assert.Throws<InvalidOperationException>(() => Rewind.Run(() =>
         {
             cell.Value = 2;
+#pragma warning disable RWD1001 // The test leaves the scope open to prove that Run rolls it back.
             Rewind.Begin();
+#pragma warning restore RWD1001
             cell.Value = 3;
             throw original;
         }));

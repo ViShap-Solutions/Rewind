@@ -29,11 +29,13 @@
 
   <ItemGroup>
     <None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+    <None Include="..\ViShap.Rewind.Generator.CodeFixes\bin\$(Configuration)\netstandard2.0\ViShap.Rewind.Generator.CodeFixes.dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
     <None Include="GENERATOR-README.md" Pack="true" PackagePath="/" />
   </ItemGroup>
 
   <ItemGroup>
     <InternalsVisibleTo Include="ViShap.Rewind.Generator.Tests" />
+    <InternalsVisibleTo Include="ViShap.Rewind.Generator.CodeFixes" />
   </ItemGroup>
 
 </Project>

@@ -256,10 +256,12 @@ jobs:
             }
           done
 
-          unzip -l "./artifacts/ViShap.Rewind.Generator.$VERSION.nupkg" | grep -q "analyzers/dotnet/cs/ViShap.Rewind.Generator.dll" || {
-            echo "The generator package does not hold analyzers/dotnet/cs/ViShap.Rewind.Generator.dll"
-            exit 1
-          }
+          for assembly in ViShap.Rewind.Generator.dll ViShap.Rewind.Generator.CodeFixes.dll; do
+            unzip -l "./artifacts/ViShap.Rewind.Generator.$VERSION.nupkg" | grep -q "analyzers/dotnet/cs/$assembly" || {
+              echo "The generator package does not hold analyzers/dotnet/cs/$assembly"
+              exit 1
+            }
+          done
 
           echo "Package metadata validation completed."
 

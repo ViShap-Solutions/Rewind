@@ -95,7 +95,9 @@ public sealed class CellTests
     public void Rollback_ReferenceType_RestoresReferenceButNotObjectContent()
     {
         var original = new List<int> { 1 };
+#pragma warning disable RWD1004 // The test proves that only the reference of a mutable element is restored.
         var cell = new RewindCell<List<int>>(original);
+#pragma warning restore RWD1004
 
         using (Rewind.Begin())
         {
