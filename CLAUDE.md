@@ -69,13 +69,12 @@ Every file under `internal/` states its class at its head (`internal/README.md`)
 - `internal/performance/` — *plan.* Optimization proposals from measurements, for the owner to decide.
 - `internal/Development-Workflow.md` — *operational* (Russian). Never edited by an agent unless the owner asks.
 
-Current state: **B0 gate holds — awaiting commit.** The solution restores, builds in Debug and Release with zero
-warnings, both test projects pass, and `dotnet pack` produces the meta-package (depending on Core and Generator),
-Core, Generator (`analyzers/dotnet/cs`) and Testing. The Core engine of contract §4–§7 is drafted and its first
-tests pass: `Rewind`, `RewindScope`, `RewindCell<T>`, `IRewindOperation`, the four exceptions, `Engine/`
-(ScopeContext, Journal, entries, AwaitableShape); B1 proves it against the contract. The generator registers an
-empty pipeline and is built against Roslyn 5.0.0, the minimum consumer compiler. The Testing project has no code
-yet.
+Current state: **B0 closed; B1 gate holds — awaiting commit.** The Core engine of contract §4–§7 (`Rewind`,
+`RewindScope`, `RewindCell<T>`, `IRewindOperation`, the four exceptions, `Engine/`) is proven checkpoint by
+checkpoint: every QA checkpoint of B1 has its test, INV-01…INV-12 are pinned, and `docs/scopes.md`,
+`docs/effects.md`, `docs/exceptions.md` are written. The generator registers an empty pipeline and is built against
+Roslyn 5.0.0, the minimum consumer compiler. The Testing project has no code yet. Next: B2 (public surface and
+executable documentation examples).
 
 ## Projects
 

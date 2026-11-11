@@ -71,4 +71,35 @@ public sealed class BeginTests
 
         Assert.Equal(0, cell.Value);
     }
+
+    [Fact]
+    public void Commit_AfterDispose_ThrowsScopeAndChangesNothing()
+    {
+        var cell = new RewindCell<int>(1);
+        var scope = Rewind.Begin();
+        cell.Value = 2;
+        scope.Dispose();
+
+        Assert.Throws<RewindScopeException>(scope.Commit);
+
+        Assert.Equal(1, cell.Value);
+        Assert.False(scope.IsActive);
+        Assert.Null(Rewind.Current);
+    }
+
+    [Fact]
+    public void Register_OnClosedScope_ThrowsScopeAndRegistersNothing()
+    {
+        var log = new List<string>();
+        var scope = Rewind.Begin();
+        scope.Commit();
+
+        Assert.Throws<RewindScopeException>(() => scope.AfterCommit(() => log.Add("after commit")));
+        Assert.Throws<RewindScopeException>(() => scope.AfterRollback(() => log.Add("after rollback")));
+        Assert.Throws<RewindScopeException>(() => scope.Effect(() => log.Add("do"), () => log.Add("undo")));
+        scope.Dispose();
+
+        Assert.Empty(log);
+        Assert.Null(Rewind.Current);
+    }
 }

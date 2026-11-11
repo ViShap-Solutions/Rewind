@@ -121,7 +121,7 @@ public static class Rewind
     public static void Run<TOperation>(TOperation operation)
         where TOperation : IRewindOperation
     {
-        if (operation is null)
+        if (!typeof(TOperation).IsValueType && operation is null)
         {
             throw new ArgumentNullException(nameof(operation));
         }
