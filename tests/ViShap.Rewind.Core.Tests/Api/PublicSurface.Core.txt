@@ -100,3 +100,9 @@ struct RewindSet<T>.Enumerator : IEnumerator<T>
     T Current { get; }
     bool MoveNext()
     void Dispose()
+sealed class RewindableAttribute : Attribute
+    RewindableAttribute()
+sealed class RewindIgnoreAttribute : Attribute
+    RewindIgnoreAttribute()
+static class ViShap.Rewind.Contracts.RewindProperty
+    void Write<TOwner, T>(TOwner owner, ref T field, ref long epoch, T value, Action<TOwner, T> restore) where TOwner : class

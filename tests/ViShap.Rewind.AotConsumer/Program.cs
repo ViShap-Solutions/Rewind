@@ -100,6 +100,19 @@ Rewind.Run(() =>
 });
 Report("Collections commit", $"{string.Join(",", list)} {dictionary.Count} {string.Join(",", set.Order(StringComparer.Ordinal))}");
 
+var order = new Order { Status = "new" };
+Attempt(() => Rewind.Run(() =>
+{
+    order.Total = 30m;
+    order.Status = "paid";
+    order.Views = 1;
+    throw new InvalidOperationException("declined");
+}));
+Report("Rewindable rolls back", $"{order.Total} {order.Status} {order.Views}");
+
+Rewind.Run(() => order.Total = 45m);
+Report("Rewindable commits", order.Total);
+
 Report("Effects", string.Join(", ", log));
 Report("Current after all", Rewind.Current is null ? "none" : "open");
 
@@ -131,4 +144,15 @@ internal readonly struct FailingWrite(RewindCell<int> cell, int value) : IRewind
         cell.Value = value;
         throw new InvalidOperationException("declined");
     }
+}
+
+[Rewindable]
+internal sealed partial class Order
+{
+    public partial decimal Total { get; set; }
+
+    public partial string Status { get; set; }
+
+    [RewindIgnore]
+    public partial int Views { get; set; }
 }

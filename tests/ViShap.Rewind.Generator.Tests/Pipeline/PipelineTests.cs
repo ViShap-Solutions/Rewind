@@ -1,7 +1,7 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 
-namespace ViShap.Rewind.Generator.Tests;
+namespace ViShap.Rewind.Generator.Tests.Pipeline;
 
 public sealed class PipelineTests
 {

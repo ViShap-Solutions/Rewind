@@ -19,15 +19,14 @@ or compensated when it is not.
 ```csharp
 using ViShap.Rewind;
 
-var balance = new RewindCell<decimal>(100m);
-var reserved = new RewindCell<int>(0);
+var account = new Account { Balance = 100m };
 
 try
 {
     Rewind.Run(scope =>
     {
-        balance.Value -= 30m;
-        reserved.Value += 1;
+        account.Balance -= 30m;
+        account.Reserved += 1;
         scope.AfterCommit(() => Console.WriteLine("Receipt sent"));
         throw new InvalidOperationException("Payment declined");
     });
@@ -36,7 +35,15 @@ catch (InvalidOperationException)
 {
 }
 
-Console.WriteLine($"{balance.Value} {reserved.Value}"); // 100 0, and no receipt was sent
+Console.WriteLine($"{account.Balance} {account.Reserved}"); // 100 0, and no receipt was sent
+
+[Rewindable]
+public partial class Account
+{
+    public partial decimal Balance { get; set; }
+
+    public partial int Reserved { get; set; }
+}
 ```
 
 ## Packages
@@ -47,6 +54,10 @@ Console.WriteLine($"{balance.Value} {reserved.Value}"); // 100 0, and no receipt
 | `ViShap.Rewind.Core` | Scopes, tracked state, effects, exceptions |
 | `ViShap.Rewind.Generator` | Source generator and analyzers; compiler only |
 | `ViShap.Rewind.Testing` | For test projects: proves an operation leaves no trace at every failure point |
+
+A class marked `[Rewindable]` declares its tracked properties as `partial`; the source generator writes them. For a
+single value outside a class there is `RewindCell<T>`, and `RewindList<T>`, `RewindDictionary<TKey, TValue>` and
+`RewindSet<T>` are tracked collections.
 
 Targets .NET 10.
 

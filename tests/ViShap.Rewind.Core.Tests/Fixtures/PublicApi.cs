@@ -5,10 +5,14 @@ namespace ViShap.Rewind.Tests.Fixtures;
 
 /// <summary>
 /// Renders the exported surface of an assembly as text, one line per type and one indented line per member, in the
-/// notation of the public surface listing: C# keywords, short type names, nullable annotations, parameter names.
+/// notation of the public surface listing: C# keywords, short type names, nullable annotations, parameter names. A
+/// type outside <see cref="ListingNamespace"/> is declared with its namespace.
 /// </summary>
 public static class PublicApi
 {
+    /// <summary>The namespace whose types the listing names without their namespace.</summary>
+    public const string ListingNamespace = "ViShap.Rewind";
+
     private const BindingFlags Declared =
         BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly;
 
@@ -92,7 +96,13 @@ public static class PublicApi
             .Select(candidate => TypeName(candidate, null))
             .OrderBy(name => name, StringComparer.Ordinal));
 
-        var header = $"{kind} {DeclaredName(type)}";
+        var name = DeclaredName(type);
+        if (type.DeclaringType is null && type.Namespace != ListingNamespace)
+        {
+            name = $"{type.Namespace}.{name}";
+        }
+
+        var header = $"{kind} {name}";
         return bases.Count == 0 ? header : $"{header} : {string.Join(", ", bases)}";
     }
 
