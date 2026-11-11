@@ -1,0 +1,10 @@
+bin/
+obj/
+artifacts/
+TestResults/
+BenchmarkDotNet.Artifacts/
+benchmarks/**/Measurements/
+.idea/
+.vs/
+*.nupkg
+*.snupkg

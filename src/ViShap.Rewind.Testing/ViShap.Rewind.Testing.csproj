@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>ViShap.Rewind.Testing</RootNamespace>
+    <IsPackable>true</IsPackable>
+    <PackageId>ViShap.Rewind.Testing</PackageId>
+    <Description>Test tools for code that uses ViShap.Rewind: proves that every failure point of an operation leaves tracked state as it was and runs no deferred effect. For test projects.</Description>
+    <PackageReadmeFile>TESTING-README.md</PackageReadmeFile>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="TESTING-README.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ViShap.Rewind.Core\ViShap.Rewind.Core.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>ViShap.Rewind</PackageId>
+    <Description>Atomic in-memory state change for .NET: a block of code either keeps all its changes or none, with effects bound to commit and rollback. Brings ViShap.Rewind.Core and its source generator.</Description>
+    <PackageReadmeFile>METAPACK-README.md</PackageReadmeFile>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <IncludeSymbols>false</IncludeSymbols>
+    <NoWarn>$(NoWarn);NU5128</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="METAPACK-README.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ViShap.Rewind.Core\ViShap.Rewind.Core.csproj" />
+    <ProjectReference Include="..\ViShap.Rewind.Generator\ViShap.Rewind.Generator.csproj" PrivateAssets="none" />
+  </ItemGroup>
+
+</Project>

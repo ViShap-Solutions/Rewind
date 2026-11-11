@@ -1,0 +1,400 @@
+name: Publish Rewind
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-release
+  cancel-in-progress: false
+
+jobs:
+  validate-build-test-pack:
+    name: Validate, build, test and pack
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout exact tagged commit
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Setup .NET 10 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Extract and validate release version
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          TAG_NAME="${GITHUB_REF_NAME}"
+          VERSION="${TAG_NAME#v}"
+
+          CORE='(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)'
+
+          if [[ "$TAG_NAME" =~ ^v${CORE}$ ]]; then
+            PRERELEASE=false
+          elif [[ "$TAG_NAME" =~ ^v${CORE}-(alpha|beta|rc)\.[1-9][0-9]*$ ]]; then
+            PRERELEASE=true
+          else
+            echo "Invalid release tag: $TAG_NAME"
+            echo
+            echo "Expected:"
+            echo "  vMAJOR.MINOR.PATCH                  stable release, from main"
+            echo "  vMAJOR.MINOR.PATCH-alpha.N          pre-release, from a release/* branch"
+            echo "  vMAJOR.MINOR.PATCH-beta.N"
+            echo "  vMAJOR.MINOR.PATCH-rc.N"
+            exit 1
+          fi
+
+          echo "TAG_NAME=$TAG_NAME" >> "$GITHUB_ENV"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "PRERELEASE=$PRERELEASE" >> "$GITHUB_ENV"
+
+          echo "Release tag: $TAG_NAME"
+          echo "Package version: $VERSION"
+          echo "Pre-release: $PRERELEASE"
+
+      - name: Verify tag position
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git fetch origin '+refs/heads/*:refs/remotes/origin/*' --force
+
+          TAG_COMMIT="$(git rev-parse "$TAG_NAME^{commit}")"
+          echo "Tagged commit: $TAG_COMMIT"
+
+          if [[ "$PRERELEASE" == "false" ]]; then
+            MAIN_COMMIT="$(git rev-parse origin/main)"
+            echo "main HEAD:     $MAIN_COMMIT"
+
+            if [[ "$TAG_COMMIT" != "$MAIN_COMMIT" ]]; then
+              echo "A stable release tag must point exactly to the current HEAD of main."
+              exit 1
+            fi
+          else
+            BRANCHES="$(git branch -r --contains "$TAG_COMMIT" --format='%(refname:short)' | grep '^origin/release/' || true)"
+
+            if [[ -z "$BRANCHES" ]]; then
+              echo "A pre-release tag must point to a commit on a release/* branch of origin."
+              exit 1
+            fi
+
+            echo "Contained in:"
+            echo "$BRANCHES"
+
+            STABLE_TAG="v${VERSION%%-*}"
+            if git rev-parse -q --verify "refs/tags/$STABLE_TAG" > /dev/null; then
+              echo "$STABLE_TAG is already released; a pre-release of it would sort below the release."
+              exit 1
+            fi
+          fi
+
+      - name: Restore solution
+        run: dotnet restore Rewind.slnx
+
+      - name: Build solution
+        run: >
+          dotnet build
+          Rewind.slnx
+          --configuration Release
+          --no-restore
+
+      - name: Run core tests
+        run: >
+          dotnet test
+          tests/ViShap.Rewind.Core.Tests/ViShap.Rewind.Core.Tests.csproj
+          --configuration Release
+          --no-build
+          --no-restore
+          --logger "trx;LogFileName=core-tests.trx"
+
+      - name: Run generator tests
+        run: >
+          dotnet test
+          tests/ViShap.Rewind.Generator.Tests/ViShap.Rewind.Generator.Tests.csproj
+          --configuration Release
+          --no-build
+          --no-restore
+          --logger "trx;LogFileName=generator-tests.trx"
+
+      - name: Pack ViShap.Rewind.Core
+        run: >
+          dotnet pack
+          src/ViShap.Rewind.Core/ViShap.Rewind.Core.csproj
+          --configuration Release
+          --no-build
+          --no-restore
+          -p:Version=${{ env.VERSION }}
+          --output ./artifacts
+
+      - name: Pack ViShap.Rewind.Generator
+        run: >
+          dotnet pack
+          src/ViShap.Rewind.Generator/ViShap.Rewind.Generator.csproj
+          --configuration Release
+          --no-build
+          --no-restore
+          -p:Version=${{ env.VERSION }}
+          --output ./artifacts
+
+      - name: Pack ViShap.Rewind meta-package
+        run: >
+          dotnet pack
+          src/ViShap.Rewind/ViShap.Rewind.csproj
+          --configuration Release
+          --no-build
+          --no-restore
+          -p:Version=${{ env.VERSION }}
+          --output ./artifacts
+
+      - name: Validate release artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "Produced packages:"
+          find ./artifacts -maxdepth 1 -type f -name '*.nupkg' -print | sort
+
+          EXPECTED_COUNT=3
+          ACTUAL_COUNT="$(
+            find ./artifacts \
+              -maxdepth 1 \
+              -type f \
+              -name '*.nupkg' \
+              | wc -l
+          )"
+
+          if [[ "$ACTUAL_COUNT" -ne "$EXPECTED_COUNT" ]]; then
+            echo "Expected exactly $EXPECTED_COUNT NuGet packages, found $ACTUAL_COUNT."
+            exit 1
+          fi
+
+          EXPECTED_PACKAGES=(
+            "ViShap.Rewind.Core.$VERSION.nupkg"
+            "ViShap.Rewind.Generator.$VERSION.nupkg"
+            "ViShap.Rewind.$VERSION.nupkg"
+          )
+
+          for package in "${EXPECTED_PACKAGES[@]}"; do
+            if [[ ! -f "./artifacts/$package" ]]; then
+              echo "Missing expected package: $package"
+              exit 1
+            fi
+          done
+
+          EXPECTED_SYMBOLS=(
+            "ViShap.Rewind.Core.$VERSION.snupkg"
+          )
+
+          for symbols in "${EXPECTED_SYMBOLS[@]}"; do
+            if [[ ! -f "./artifacts/$symbols" ]]; then
+              echo "Missing expected symbol package: $symbols"
+              exit 1
+            fi
+          done
+
+          echo "All expected packages are present."
+
+      - name: Validate package metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p ./package-inspection
+
+          for package in ./artifacts/*.nupkg; do
+            echo "Inspecting $package"
+
+            rm -rf ./package-inspection/current
+            mkdir -p ./package-inspection/current
+
+            unzip -q "$package" \
+              -d ./package-inspection/current
+
+            SPEC_FILE="$(
+              find ./package-inspection/current \
+                -maxdepth 3 \
+                -name '*.nuspec' \
+                | head -n 1
+            )"
+
+            if [[ -z "$SPEC_FILE" ]]; then
+              echo "No .nuspec found in $package"
+              exit 1
+            fi
+
+            grep -q "<version>$VERSION</version>" "$SPEC_FILE" || {
+              echo "Incorrect package version in $SPEC_FILE"
+              exit 1
+            }
+
+            grep -q "<icon>icon.png</icon>" "$SPEC_FILE" && [[ -f ./package-inspection/current/icon.png ]] || {
+              echo "Missing package icon in $package"
+              exit 1
+            }
+
+            grep -q 'url="https://github.com/ViShap-Solutions/Rewind"' "$SPEC_FILE" || {
+              echo "Missing repository URL in $SPEC_FILE"
+              exit 1
+            }
+          done
+
+          META_SPEC="$(unzip -p "./artifacts/ViShap.Rewind.$VERSION.nupkg" ViShap.Rewind.nuspec)"
+          for dependency in ViShap.Rewind.Core ViShap.Rewind.Generator; do
+            grep -q "id=\"$dependency\" version=\"$VERSION\"" <<< "$META_SPEC" || {
+              echo "The meta-package does not depend on $dependency $VERSION"
+              exit 1
+            }
+          done
+
+          unzip -l "./artifacts/ViShap.Rewind.Generator.$VERSION.nupkg" | grep -q "analyzers/dotnet/cs/ViShap.Rewind.Generator.dll" || {
+            echo "The generator package does not hold analyzers/dotnet/cs/ViShap.Rewind.Generator.dll"
+            exit 1
+          }
+
+          echo "Package metadata validation completed."
+
+      - name: Upload validated packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: rewind-packages-${{ env.VERSION }}
+          path: |
+            ./artifacts/*.nupkg
+            ./artifacts/*.snupkg
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    name: Publish to NuGet and GitHub Release
+    needs: validate-build-test-pack
+    runs-on: ubuntu-latest
+
+    environment:
+      name: production
+
+    permissions:
+      contents: write
+      id-token: write
+
+    steps:
+      - name: Checkout exact tagged commit
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Setup .NET 10 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Extract release version
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          TAG_NAME="${GITHUB_REF_NAME}"
+          VERSION="${TAG_NAME#v}"
+
+          echo "TAG_NAME=$TAG_NAME" >> "$GITHUB_ENV"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Download validated packages
+        uses: actions/download-artifact@v4
+        with:
+          name: rewind-packages-${{ env.VERSION }}
+          path: ./artifacts
+
+      - name: Validate downloaded artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          EXPECTED_COUNT=3
+          ACTUAL_COUNT="$(
+            find ./artifacts \
+              -maxdepth 1 \
+              -type f \
+              -name '*.nupkg' \
+              | wc -l
+          )"
+
+          if [[ "$ACTUAL_COUNT" -ne "$EXPECTED_COUNT" ]]; then
+            echo "Expected exactly $EXPECTED_COUNT packages, found $ACTUAL_COUNT."
+            exit 1
+          fi
+
+          EXPECTED_PACKAGES=(
+            "ViShap.Rewind.Core.$VERSION.nupkg"
+            "ViShap.Rewind.Generator.$VERSION.nupkg"
+            "ViShap.Rewind.$VERSION.nupkg"
+          )
+
+          for package in "${EXPECTED_PACKAGES[@]}"; do
+            if [[ ! -f "./artifacts/$package" ]]; then
+              echo "Missing expected package: $package"
+              exit 1
+            fi
+          done
+
+          if [[ ! -f "./artifacts/ViShap.Rewind.Core.$VERSION.snupkg" ]]; then
+            echo "Missing expected symbol package: ViShap.Rewind.Core.$VERSION.snupkg"
+            exit 1
+          fi
+
+      - name: Authenticate with NuGet Trusted Publishing
+        uses: NuGet/login@v1
+        id: nuget-login
+        with:
+          user: ${{ secrets.NUGET_USER }}
+
+      - name: Push packages to NuGet.org
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          PACKAGES=(
+            "./artifacts/ViShap.Rewind.Core.$VERSION.nupkg"
+            "./artifacts/ViShap.Rewind.Generator.$VERSION.nupkg"
+            "./artifacts/ViShap.Rewind.$VERSION.nupkg"
+          )
+
+          for package in "${PACKAGES[@]}"; do
+            echo "Publishing $package"
+
+            dotnet nuget push "$package" \
+              --api-key "${{ steps.nuget-login.outputs.NUGET_API_KEY }}" \
+              --source "https://api.nuget.org/v3/index.json" \
+              --skip-duplicate
+          done
+
+      - name: Create GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$VERSION" == *-* ]]; then
+            gh release create "$TAG_NAME" \
+              ./artifacts/*.nupkg \
+              --verify-tag \
+              --title "$TAG_NAME" \
+              --generate-notes \
+              --prerelease
+          else
+            gh release create "$TAG_NAME" \
+              ./artifacts/*.nupkg \
+              --verify-tag \
+              --title "$TAG_NAME" \
+              --generate-notes
+          fi
