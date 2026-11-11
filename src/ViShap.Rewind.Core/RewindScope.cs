@@ -19,6 +19,7 @@ public sealed class RewindScope : IDisposable
     private readonly bool _managed;
     private List<Action>? _afterCommit;
     private List<Action>? _afterRollback;
+    private List<Action<ChangeSet>>? _onCommitted;
     private ScopeState _state;
 
     private RewindScope(RewindScope? parent, bool managed)
@@ -65,6 +66,25 @@ public sealed class RewindScope : IDisposable
         ArgumentNullException.ThrowIfNull(action);
         EnsureInnermost();
         (_afterRollback ??= []).Add(action);
+    }
+
+    /// <summary>
+    /// Registers <paramref name="action"/> to receive the <see cref="ChangeSet"/> of the outermost scope once it has
+    /// committed: every tracked value it and the scopes nested in it changed. It is discarded if this scope or any scope
+    /// enclosing it rolls back. A change set is built only when an action is registered.
+    /// </summary>
+    /// <param name="action">The observer of the committed changes.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="action"/> is <see langword="null"/>.</exception>
+    /// <exception cref="RewindScopeException">The scope is closed, is not the innermost open scope, or belongs to another thread.</exception>
+    /// <remarks>
+    /// The actions run with no current scope, after the change notifications and before the effects registered with
+    /// <see cref="AfterCommit"/>, in registration order. A failure does not undo state and does not stop the others.
+    /// </remarks>
+    public void OnCommitted(Action<ChangeSet> action)
+    {
+        ArgumentNullException.ThrowIfNull(action);
+        EnsureInnermost();
+        (_onCommitted ??= []).Add(action);
     }
 
     /// <summary>
@@ -171,14 +191,50 @@ public sealed class RewindScope : IDisposable
         _state = ScopeState.Committed;
         if (_parent is not null)
         {
-            _parent.Adopt(_afterCommit, _afterRollback);
+            _parent.Adopt(_afterCommit, _afterRollback, _onCommitted);
             ScopeContext.Set(_parent);
             return;
         }
 
+        var notify = _journal.RentNotifications();
+        var changes = _onCommitted is null ? null : _journal.ToChangeSet();
         _journal.Clear();
         ScopeContext.Set(null);
-        var failures = RunEffects(_afterCommit);
+
+        List<Exception>? failures = null;
+        if (notify is not null)
+        {
+            foreach (var entry in notify)
+            {
+                try
+                {
+                    entry.Notify();
+                }
+                catch (Exception exception)
+                {
+                    (failures ??= []).Add(exception);
+                }
+            }
+
+            Journal.ReturnNotifications(notify);
+        }
+
+        if (_onCommitted is not null)
+        {
+            foreach (var observer in _onCommitted)
+            {
+                try
+                {
+                    observer(changes!);
+                }
+                catch (Exception exception)
+                {
+                    (failures ??= []).Add(exception);
+                }
+            }
+        }
+
+        Append(ref failures, RunEffects(_afterCommit));
         if (failures is not null)
         {
             throw new RewindEffectException(failures);
@@ -206,8 +262,13 @@ public sealed class RewindScope : IDisposable
         }
     }
 
-    private void Adopt(List<Action>? afterCommit, List<Action>? afterRollback)
+    private void Adopt(List<Action>? afterCommit, List<Action>? afterRollback, List<Action<ChangeSet>>? onCommitted)
     {
+        if (onCommitted is not null)
+        {
+            (_onCommitted ??= []).AddRange(onCommitted);
+        }
+
         if (afterCommit is not null)
         {
             (_afterCommit ??= []).AddRange(afterCommit);

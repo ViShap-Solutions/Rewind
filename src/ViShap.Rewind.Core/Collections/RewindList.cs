@@ -228,37 +228,72 @@ public sealed class RewindList<T> : IList<T>, IReadOnlyList<T>
         }
     }
 
-    private sealed class SetEntry(RewindList<T> list, int index, T previous) : JournalEntry
+    private sealed class SetEntry(RewindList<T> list, int index, T previous) : CollectionEntry(list)
     {
         public override void Undo()
         {
             list._items[index] = previous;
             list._version++;
         }
+
+        public override void UndoRecorded() => list[index] = previous;
     }
 
-    private sealed class RemoveRangeEntry(RewindList<T> list, int index, int count) : JournalEntry
+    private sealed class RemoveRangeEntry(RewindList<T> list, int index, int count) : CollectionEntry(list)
     {
         public override void Undo()
         {
             list._items.RemoveRange(index, count);
             list._version++;
         }
+
+        public override void UndoRecorded()
+        {
+            var items = list._items.GetRange(index, count);
+            list._items.RemoveRange(index, count);
+            list._version++;
+            ScopeContext.Current?.Journal.Add(new InsertRangeEntry(list, index, items));
+        }
     }
 
-    private sealed class InsertEntry(RewindList<T> list, int index, T item) : JournalEntry
+    private sealed class InsertEntry(RewindList<T> list, int index, T item) : CollectionEntry(list)
     {
         public override void Undo()
         {
             list._items.Insert(index, item);
             list._version++;
         }
+
+        public override void UndoRecorded() => list.Insert(index, item);
     }
 
-    private sealed class RestoreEntry(RewindList<T> list, List<T> items) : JournalEntry
+    private sealed class InsertRangeEntry(RewindList<T> list, int index, List<T> items) : CollectionEntry(list)
     {
         public override void Undo()
         {
+            list._items.InsertRange(index, items);
+            list._version++;
+        }
+
+        public override void UndoRecorded()
+        {
+            list._items.InsertRange(index, items);
+            list._version++;
+            ScopeContext.Current?.Journal.Add(new RemoveRangeEntry(list, index, items.Count));
+        }
+    }
+
+    private sealed class RestoreEntry(RewindList<T> list, List<T> items) : CollectionEntry(list)
+    {
+        public override void Undo()
+        {
+            list._items = items;
+            list._version++;
+        }
+
+        public override void UndoRecorded()
+        {
+            ScopeContext.Current?.Journal.Add(new RestoreEntry(list, list._items));
             list._items = items;
             list._version++;
         }

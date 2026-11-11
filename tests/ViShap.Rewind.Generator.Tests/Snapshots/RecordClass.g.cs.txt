@@ -7,12 +7,12 @@ namespace Shop
     {
         private string __rewindName = default!;
         private long __rewindNameEpoch;
-        private static readonly global::System.Action<global::Shop.Customer, string> __rewindNameRestore = static (owner, value) => owner.__rewindName = value;
+        private static readonly global::ViShap.Rewind.Contracts.RewindPropertyInfo<global::Shop.Customer, string> __rewindNameInfo = new("Name", static owner => owner.__rewindName, static (owner, value) => owner.__rewindName = value);
 
         public partial string Name
         {
             get => __rewindName;
-            set => global::ViShap.Rewind.Contracts.RewindProperty.Write(this, ref __rewindName, ref __rewindNameEpoch, value, __rewindNameRestore);
+            set => global::ViShap.Rewind.Contracts.RewindProperty.Write(this, ref __rewindName, ref __rewindNameEpoch, value, __rewindNameInfo);
         }
     }
 }

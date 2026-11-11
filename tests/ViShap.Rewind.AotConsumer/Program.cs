@@ -113,6 +113,24 @@ Report("Rewindable rolls back", $"{order.Total} {order.Status} {order.Views}");
 Rewind.Run(() => order.Total = 45m);
 Report("Rewindable commits", order.Total);
 
+var history = new RewindHistory();
+var raised = new List<string>();
+var form = new Form();
+form.PropertyChanged += (_, e) => raised.Add(e.PropertyName!);
+history.Run(scope =>
+{
+    form.Title = "One";
+    form.Tags.Add("a");
+    scope.OnCommitted(changes => Report("Changes", changes.Changes.Count));
+});
+history.Run(() => form.Tags.Clear());
+history.Undo();
+history.Undo();
+Report("History undone", $"{form.Title ?? "none"} {form.Tags.Count}");
+history.Redo();
+Report("History redone", $"{form.Title} {string.Join(",", form.Tags)}");
+Report("Notifications", string.Join(",", raised));
+
 Report("Effects", string.Join(", ", log));
 Report("Current after all", Rewind.Current is null ? "none" : "open");
 
@@ -155,4 +173,14 @@ internal sealed partial class Order
 
     [RewindIgnore]
     public partial int Views { get; set; }
+}
+
+[Rewindable]
+internal sealed partial class Form : System.ComponentModel.INotifyPropertyChanged
+{
+    public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+
+    public partial string? Title { get; set; }
+
+    public RewindList<string> Tags { get; } = [];
 }

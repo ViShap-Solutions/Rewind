@@ -7,22 +7,22 @@ namespace Shop
     {
         private int __rewindItems;
         private long __rewindItemsEpoch;
-        private static readonly global::System.Action<global::Shop.Cart, int> __rewindItemsRestore = static (owner, value) => owner.__rewindItems = value;
+        private static readonly global::ViShap.Rewind.Contracts.RewindPropertyInfo<global::Shop.Cart, int> __rewindItemsInfo = new("Items", static owner => owner.__rewindItems, static (owner, value) => owner.__rewindItems = value);
 
         public partial int Items
         {
             get => __rewindItems;
-            set => global::ViShap.Rewind.Contracts.RewindProperty.Write(this, ref __rewindItems, ref __rewindItemsEpoch, value, __rewindItemsRestore);
+            set => global::ViShap.Rewind.Contracts.RewindProperty.Write(this, ref __rewindItems, ref __rewindItemsEpoch, value, __rewindItemsInfo);
         }
 
         private decimal __rewindTotal;
         private long __rewindTotalEpoch;
-        private static readonly global::System.Action<global::Shop.Cart, decimal> __rewindTotalRestore = static (owner, value) => owner.__rewindTotal = value;
+        private static readonly global::ViShap.Rewind.Contracts.RewindPropertyInfo<global::Shop.Cart, decimal> __rewindTotalInfo = new("Total", static owner => owner.__rewindTotal, static (owner, value) => owner.__rewindTotal = value);
 
         public partial decimal Total
         {
             get => __rewindTotal;
-            set => global::ViShap.Rewind.Contracts.RewindProperty.Write(this, ref __rewindTotal, ref __rewindTotalEpoch, value, __rewindTotalRestore);
+            set => global::ViShap.Rewind.Contracts.RewindProperty.Write(this, ref __rewindTotal, ref __rewindTotalEpoch, value, __rewindTotalInfo);
         }
     }
 }

@@ -46,7 +46,8 @@ internal static class RewindPlanner
             new EquatableArray<TypeDeclarationPlan>(ContainingTypes(type)),
             Declaration(type),
             type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
-            new EquatableArray<PropertyPlan>(properties.ToImmutable()));
+            new EquatableArray<PropertyPlan>(properties.ToImmutable()),
+            Notification(type, cancellationToken) ?? NotifyKind.None);
     }
 
     /// <summary>Returns what is reported about <paramref name="type"/>.</summary>
@@ -56,6 +57,11 @@ internal static class RewindPlanner
         {
             yield return Diagnostic.Create(Descriptors.NotPartial, notPartial.Identifier.GetLocation(), notPartial.Identifier.ValueText);
             yield break;
+        }
+
+        if (Notification(type, cancellationToken) is null)
+        {
+            yield return Diagnostic.Create(Descriptors.NoNotification, type.Locations.FirstOrDefault() ?? Location.None, type.Name);
         }
 
         foreach (var property in DeclaredProperties(type))
@@ -114,6 +120,59 @@ internal static class RewindPlanner
             tracked,
             ReferenceLike: !property.Type.IsValueType && property.Type.NullableAnnotation != NullableAnnotation.Annotated);
     }
+
+    /// <summary>
+    /// Returns how <paramref name="type"/> raises a change notification: <see cref="NotifyKind.None"/> when it does not
+    /// implement <c>INotifyPropertyChanged</c>, or <see langword="null"/> when it does but has nothing generated code can
+    /// call.
+    /// </summary>
+    private static string? Notification(INamedTypeSymbol type, CancellationToken cancellationToken)
+    {
+        if (!type.AllInterfaces.Any(candidate => candidate.ToDisplayString() == "System.ComponentModel.INotifyPropertyChanged"))
+        {
+            return NotifyKind.None;
+        }
+
+        string? args = null;
+        for (var current = type; current is not null; current = current.BaseType)
+        {
+            foreach (var method in current.GetMembers("OnPropertyChanged").OfType<IMethodSymbol>())
+            {
+                if (method.IsStatic || method.Parameters.Length != 1 || !Callable(method, type))
+                {
+                    continue;
+                }
+
+                var parameter = method.Parameters[0].Type.ToDisplayString();
+                if (method.Parameters[0].Type.SpecialType == SpecialType.System_String)
+                {
+                    return NotifyKind.NameMethod;
+                }
+
+                if (parameter == "System.ComponentModel.PropertyChangedEventArgs")
+                {
+                    args ??= NotifyKind.ArgsMethod;
+                }
+            }
+        }
+
+        if (args is not null)
+        {
+            return args;
+        }
+
+        var fieldLike = type.GetMembers("PropertyChanged").OfType<IEventSymbol>().Any(candidate =>
+            !candidate.IsStatic
+            && candidate.DeclaringSyntaxReferences.Any(reference =>
+                reference.GetSyntax(cancellationToken) is VariableDeclaratorSyntax { Parent.Parent: EventFieldDeclarationSyntax }));
+        return fieldLike ? NotifyKind.Event : null;
+    }
+
+    private static bool Callable(IMethodSymbol method, INamedTypeSymbol type) =>
+        SymbolEqualityComparer.Default.Equals(method.ContainingType, type)
+        || method.DeclaredAccessibility is Accessibility.Public or Accessibility.Protected or Accessibility.ProtectedOrInternal
+        || (method.DeclaredAccessibility is Accessibility.Internal or Accessibility.ProtectedAndInternal
+            && SymbolEqualityComparer.Default.Equals(method.ContainingAssembly, type.ContainingAssembly));
 
     private static IOrderedEnumerable<IPropertySymbol> DeclaredProperties(INamedTypeSymbol type) =>
         type.GetMembers()

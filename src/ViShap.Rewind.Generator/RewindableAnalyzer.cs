@@ -5,7 +5,7 @@ using Microsoft.CodeAnalysis.Diagnostics;
 namespace ViShap.Rewind.Generator;
 
 /// <summary>
-/// Reports what the generator cannot track in a class marked <c>[Rewindable]</c> (RWD0001–RWD0005), at the exact
+/// Reports what the generator cannot track in a class marked <c>[Rewindable]</c> (RWD0001–RWD0006), at the exact
 /// source location, so a warning can be suppressed like any other.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
@@ -17,7 +17,8 @@ public sealed class RewindableAnalyzer : DiagnosticAnalyzer
         Descriptors.UntrackedProperty,
         Descriptors.UnsupportedAccessor,
         Descriptors.MutableReference,
-        Descriptors.UnsupportedShape);
+        Descriptors.UnsupportedShape,
+        Descriptors.NoNotification);
 
     /// <inheritdoc />
     public override void Initialize(AnalysisContext context)

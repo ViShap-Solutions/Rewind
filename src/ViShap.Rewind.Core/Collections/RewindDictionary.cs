@@ -324,37 +324,50 @@ public sealed class RewindDictionary<TKey, TValue> : IDictionary<TKey, TValue>, 
         protected override TValue Select(KeyValuePair<TKey, TValue> pair) => pair.Value;
     }
 
-    private sealed class SetEntry(RewindDictionary<TKey, TValue> dictionary, TKey key, TValue previous) : JournalEntry
+    private sealed class SetEntry(RewindDictionary<TKey, TValue> dictionary, TKey key, TValue previous) : CollectionEntry(dictionary)
     {
         public override void Undo()
         {
             dictionary._items[key] = previous;
             dictionary._version++;
         }
+
+        public override void UndoRecorded() => dictionary[key] = previous;
     }
 
-    private sealed class RemoveEntry(RewindDictionary<TKey, TValue> dictionary, TKey key) : JournalEntry
+    private sealed class RemoveEntry(RewindDictionary<TKey, TValue> dictionary, TKey key) : CollectionEntry(dictionary)
     {
         public override void Undo()
         {
             dictionary._items.Remove(key);
             dictionary._version++;
         }
+
+        public override void UndoRecorded() => dictionary.Remove(key);
     }
 
-    private sealed class AddEntry(RewindDictionary<TKey, TValue> dictionary, TKey key, TValue value) : JournalEntry
+    private sealed class AddEntry(RewindDictionary<TKey, TValue> dictionary, TKey key, TValue value) : CollectionEntry(dictionary)
     {
         public override void Undo()
         {
             dictionary._items.Add(key, value);
             dictionary._version++;
         }
+
+        public override void UndoRecorded() => dictionary.Add(key, value);
     }
 
-    private sealed class RestoreEntry(RewindDictionary<TKey, TValue> dictionary, Dictionary<TKey, TValue> items) : JournalEntry
+    private sealed class RestoreEntry(RewindDictionary<TKey, TValue> dictionary, Dictionary<TKey, TValue> items) : CollectionEntry(dictionary)
     {
         public override void Undo()
         {
+            dictionary._items = items;
+            dictionary._version++;
+        }
+
+        public override void UndoRecorded()
+        {
+            ScopeContext.Current?.Journal.Add(new RestoreEntry(dictionary, dictionary._items));
             dictionary._items = items;
             dictionary._version++;
         }

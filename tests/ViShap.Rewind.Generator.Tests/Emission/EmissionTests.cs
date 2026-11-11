@@ -129,6 +129,69 @@ public sealed class EmissionTests
         """);
 
     [Fact]
+    public void Emit_NotifyThroughNameMethod_MatchesSnapshot() => Verify("NotifyNameMethod", "Shop.Order.Rewind.g.cs", """
+        using System.ComponentModel;
+        using System.Runtime.CompilerServices;
+        using ViShap.Rewind;
+
+        namespace Shop;
+
+        public abstract class Observable : INotifyPropertyChanged
+        {
+            public event PropertyChangedEventHandler? PropertyChanged;
+
+            protected void OnPropertyChanged([CallerMemberName] string? name = null) =>
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+        }
+
+        [Rewindable]
+        public partial class Order : Observable
+        {
+            public partial decimal Total { get; set; }
+
+            [RewindIgnore]
+            public partial int Views { get; set; }
+        }
+        """);
+
+    [Fact]
+    public void Emit_NotifyThroughArgsMethod_MatchesSnapshot() => Verify("NotifyArgsMethod", "Shop.Order.Rewind.g.cs", """
+        using System.ComponentModel;
+        using ViShap.Rewind;
+
+        namespace Shop;
+
+        public abstract class Observable : INotifyPropertyChanged
+        {
+            public event PropertyChangedEventHandler? PropertyChanged;
+
+            protected virtual void OnPropertyChanged(PropertyChangedEventArgs e) => PropertyChanged?.Invoke(this, e);
+        }
+
+        [Rewindable]
+        public partial class Order : Observable
+        {
+            public partial decimal Total { get; set; }
+        }
+        """);
+
+    [Fact]
+    public void Emit_NotifyThroughEvent_MatchesSnapshot() => Verify("NotifyEvent", "Shop.Order.Rewind.g.cs", """
+        using System.ComponentModel;
+        using ViShap.Rewind;
+
+        namespace Shop;
+
+        [Rewindable]
+        public partial class Order : INotifyPropertyChanged
+        {
+            public event PropertyChangedEventHandler? PropertyChanged;
+
+            public partial decimal Total { get; set; }
+        }
+        """);
+
+    [Fact]
     public void Emit_SeveralTypes_WritesOneFilePerType()
     {
         var run = GeneratorHarness.Run("""
@@ -169,7 +232,7 @@ public sealed class EmissionTests
         Assert.DoesNotContain("ScopeContext", source);
         Assert.Contains("global::ViShap.Rewind.Contracts.RewindProperty.Write(", source);
         Assert.Contains("global::System.Collections.Generic.IReadOnlyList<string>", source);
-        Assert.Contains("global::System.Action<global::Shop.Order, decimal>", source);
+        Assert.Contains("global::ViShap.Rewind.Contracts.RewindPropertyInfo<global::Shop.Order, decimal>", source);
         Assert.DoesNotContain("\r", source);
     }
 

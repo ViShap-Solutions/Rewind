@@ -70,12 +70,13 @@ Every file under `internal/` states its class at its head (`internal/README.md`)
 - `internal/performance/` — *plan.* Optimization proposals from measurements, for the owner to decide.
 - `internal/Development-Workflow.md` — *operational* (Russian). Never edited by an agent unless the owner asks.
 
-Current state: **B0–B4 closed, `v1.0.0-alpha.1` published; B5 gate holds — awaiting commit.** Core holds the engine
-of contract §4–§7, the collections of §8, the attributes and the seam `ViShap.Rewind.Contracts.RewindProperty`. The
-generator implements `[Rewindable]` partial properties; `RewindableAnalyzer` reports RWD0001–RWD0005 and five
-analyzers report RWD1001–RWD1005, with code fixes for RWD1001 (`using`) and RWD1002 (`AfterCommit`). Every QA
-checkpoint of B1–B5 has its test and INV-01…INV-13 are pinned. The Testing project has no code yet. Next: B6
-(ChangeSet, notifications, history; owner question Q-05 first).
+Current state: **B0–B5 closed, `v1.0.0-alpha.1` published; B6 gate holds — awaiting commit.** Core holds the engine
+of contract §4–§7, the collections of §8, `ChangeSet`/`OnCommitted`, change notifications and `RewindHistory` of
+§10, the attributes and the seam `ViShap.Rewind.Contracts` (`RewindProperty.Write`/`WriteAndNotify`,
+`RewindPropertyInfo`). The generator implements `[Rewindable]` partial properties and raises `PropertyChanged` for a
+type implementing `INotifyPropertyChanged`; analyzers report RWD0001–RWD0006 and RWD1001–RWD1005. Every QA checkpoint
+of B1–B6 has its test and INV-01…INV-13 are pinned. The Testing project has no code yet. Next: B7
+(System.Transactions).
 
 ## Projects
 
@@ -114,7 +115,9 @@ RewindScope            boundary: nesting, commit, rollback, effect registration,
 Tracked state          RewindCell<T>; generated partial properties (B4); RewindList/Dictionary/Set (B3)
 Engine (internal)      ScopeContext: [ThreadStatic] innermost scope + process-wide epoch counter
                        Journal: undo log shared by an outermost scope and its children; a child is a mark
-                       JournalEntry: CellEntry<T> (previous value), CompensationEntry (undo action)
+                       JournalEntry: CellEntry<T>, PropertyEntry<TOwner, T>, collection entries, CompensationEntry;
+                       each undoes itself, undoes itself through the recording paths (history), and describes
+                       its change (ChangeSet)
 ```
 
 Key mechanics:
@@ -126,6 +129,10 @@ Key mechanics:
   recorded it. A nested scope records the cell again, so it can restore what it saw at its mark.
 - **Savepoints are marks.** Rolling back a child undoes the entries above its mark, newest first; committing a
   child leaves its entries in place and hands its effect lists to the parent.
+- **After the outermost commit:** notifications (`PropertyChanged` of notifying rewindable types), then
+  `OnCommitted` observers with the `ChangeSet` (built only when one is registered), then `AfterCommit` effects.
+- **History replays entries through the recording paths.** `RewindHistory.Undo` undoes a step's entries inside a new
+  scope that records them, so that scope's change set is the redo step.
 - **No current scope during rollback and effects.** `ScopeContext` is set to `null` while entries are undone and
   while `AfterCommit`/`AfterRollback` run, so writes there are plain writes.
 - **`Run` refuses awaitable results** before running the block (`AwaitableShape<T>`).

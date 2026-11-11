@@ -7,22 +7,22 @@ namespace Shop
     {
         private T __rewindContent = default!;
         private long __rewindContentEpoch;
-        private static readonly global::System.Action<global::Shop.Box<T>, T> __rewindContentRestore = static (owner, value) => owner.__rewindContent = value;
+        private static readonly global::ViShap.Rewind.Contracts.RewindPropertyInfo<global::Shop.Box<T>, T> __rewindContentInfo = new("Content", static owner => owner.__rewindContent, static (owner, value) => owner.__rewindContent = value);
 
         public partial T Content
         {
             get => __rewindContent;
-            set => global::ViShap.Rewind.Contracts.RewindProperty.Write(this, ref __rewindContent, ref __rewindContentEpoch, value, __rewindContentRestore);
+            set => global::ViShap.Rewind.Contracts.RewindProperty.Write(this, ref __rewindContent, ref __rewindContentEpoch, value, __rewindContentInfo);
         }
 
         private int __rewindCount;
         private long __rewindCountEpoch;
-        private static readonly global::System.Action<global::Shop.Box<T>, int> __rewindCountRestore = static (owner, value) => owner.__rewindCount = value;
+        private static readonly global::ViShap.Rewind.Contracts.RewindPropertyInfo<global::Shop.Box<T>, int> __rewindCountInfo = new("Count", static owner => owner.__rewindCount, static (owner, value) => owner.__rewindCount = value);
 
         public partial int Count
         {
             get => __rewindCount;
-            set => global::ViShap.Rewind.Contracts.RewindProperty.Write(this, ref __rewindCount, ref __rewindCountEpoch, value, __rewindCountRestore);
+            set => global::ViShap.Rewind.Contracts.RewindProperty.Write(this, ref __rewindCount, ref __rewindCountEpoch, value, __rewindCountInfo);
         }
     }
 }
