@@ -11,6 +11,31 @@ public sealed class ApiFixtureTests
     }
 
     [Fact]
+    public void TypeHeader_NestedStructOfGenericType_RendersQualifiedName()
+    {
+        var header = PublicApi.TypeHeader(typeof(RewindList<>.Enumerator));
+
+        Assert.Equal("struct RewindList<T>.Enumerator : IEnumerator<T>", header);
+    }
+
+    [Fact]
+    public void Members_IndexerAndNestedReturnType_RenderInListingNotation()
+    {
+        var members = PublicApi.Members(typeof(RewindList<>)).ToList();
+
+        Assert.Contains("T this[int index] { get; set; }", members);
+        Assert.Contains("RewindList<T>.Enumerator GetEnumerator()", members);
+    }
+
+    [Fact]
+    public void DocumentationIds_Indexer_IncludesParameters()
+    {
+        var indexer = typeof(RewindDictionary<,>).GetProperty("Item")!;
+
+        Assert.Equal("P:ViShap.Rewind.RewindDictionary`2.Item(`0)", DocumentationIds.Of(indexer));
+    }
+
+    [Fact]
     public void Members_SampleType_RendersEveryVisibleMemberInListingNotation()
     {
         var members = PublicApi.Members(typeof(Sample<>)).ToList();

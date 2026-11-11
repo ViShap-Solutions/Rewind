@@ -10,7 +10,12 @@ public static class DocumentationIds
     public static string Of(Type type) => "T:" + TypeId(type);
 
     /// <summary>Returns the identifier of a property, such as <c>P:ViShap.Rewind.RewindCell`1.Value</c>.</summary>
-    public static string Of(PropertyInfo property) => $"P:{TypeId(property.DeclaringType!)}.{property.Name}";
+    public static string Of(PropertyInfo property)
+    {
+        var parameters = property.GetIndexParameters();
+        var id = $"P:{TypeId(property.DeclaringType!)}.{property.Name}";
+        return parameters.Length == 0 ? id : $"{id}({string.Join(",", parameters.Select(parameter => ParameterId(parameter.ParameterType)))})";
+    }
 
     /// <summary>Returns the identifier of a method or constructor, such as <c>M:ViShap.Rewind.Rewind.Run``1(``0)</c>.</summary>
     public static string Of(MethodBase method)
@@ -56,6 +61,11 @@ public static class DocumentationIds
             var name = TypeId(type.GetGenericTypeDefinition());
             name = name[..name.IndexOf('`')];
             return $"{name}{{{string.Join(",", type.GetGenericArguments().Select(ParameterId))}}}";
+        }
+
+        if (type.IsGenericParameter)
+        {
+            return "`" + type.GenericParameterPosition;
         }
 
         return TypeId(type);

@@ -42,5 +42,6 @@ Rewind.Run(scope =>
 });
 ```
 
-What the library tracks is state it can restore: `RewindCell<T>` and the members built on it. A plain field keeps
-whatever value the block left in it.
+What the library tracks is state it can restore: `RewindCell<T>`, the collections `RewindList<T>`,
+`RewindDictionary<TKey, TValue>` and `RewindSet<T>`, and the members built on them. A plain field keeps whatever
+value the block left in it.

@@ -75,6 +75,31 @@ Attempt(() => Rewind.Run(scope =>
 
 Attempt(() => Rewind.Run(scope => scope.AfterCommit(() => throw new InvalidOperationException("effect failed"))));
 
+var list = new RewindList<int>([1, 2, 3]);
+var dictionary = new RewindDictionary<string, int> { ["a"] = 1 };
+var set = new RewindSet<string>(["x"], StringComparer.Ordinal);
+
+Attempt(() => Rewind.Run(() =>
+{
+    list.Add(4);
+    list.RemoveAt(0);
+    list.Clear();
+    dictionary["a"] = 2;
+    dictionary.Add("b", 3);
+    set.UnionWith(["y", "z"]);
+    set.Clear();
+    throw new InvalidOperationException("declined");
+}));
+Report("Collections roll back", $"{string.Join(",", list)} {dictionary["a"]}/{dictionary.Count} {string.Join(",", set.Order(StringComparer.Ordinal))}");
+
+Rewind.Run(() =>
+{
+    list.AddRange([4, 5]);
+    dictionary.Remove("a");
+    set.SymmetricExceptWith(["x", "w"]);
+});
+Report("Collections commit", $"{string.Join(",", list)} {dictionary.Count} {string.Join(",", set.Order(StringComparer.Ordinal))}");
+
 Report("Effects", string.Join(", ", log));
 Report("Current after all", Rewind.Current is null ? "none" : "open");
 

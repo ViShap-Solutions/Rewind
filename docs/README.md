@@ -9,5 +9,6 @@ code.
 | scopes.md | `Rewind.Run`, `Rewind.Begin`, nesting, commit and rollback |
 | effects.md | `AfterCommit`, `AfterRollback`, `Effect`: binding external work to the outcome |
 | exceptions.md | What each exception means and what state it leaves |
+| collections.md | `RewindList<T>`, `RewindDictionary<TKey, TValue>`, `RewindSet<T>`: rolling back mutations, `Clear`, enumeration |
 
 The pages are written as the stages that build each subject close.

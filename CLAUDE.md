@@ -70,12 +70,13 @@ Every file under `internal/` states its class at its head (`internal/README.md`)
 - `internal/performance/` — *plan.* Optimization proposals from measurements, for the owner to decide.
 - `internal/Development-Workflow.md` — *operational* (Russian). Never edited by an agent unless the owner asks.
 
-Current state: **B0, B1 closed; B2 gate holds — awaiting commit.** The Core engine of contract §4–§7 is proven
-checkpoint by checkpoint and INV-01…INV-12 are pinned. `Api/PublicSurfaceTests` compares the exported surface of Core
-with `Api/PublicSurface.Core.txt` (the same lines as contract §3.1) and requires XML documentation for every member;
-`Api/DocumentationExampleTests` compiles every `csharp` block of `docs/`, `README.md` and the package READMEs with
-Roslyn and the generator, and runs the top-level ones. The generator registers an empty pipeline. The Testing
-project has no code yet. Next: B3 (collections; owner question Q-04 first).
+Current state: **B0–B2 closed; B3 gate holds — awaiting commit.** Core holds the engine of contract §4–§7 and the
+collections of §8 (`RewindList<T>`, `RewindDictionary<TKey, TValue>`, `RewindSet<T>`: each mutation records its
+inverse; `Clear` in a scope detaches the storage). Every QA checkpoint of B1–B3 has its test and INV-01…INV-12 are
+pinned. `Api/PublicSurfaceTests` holds the exported surface to contract §3.1 and requires XML documentation;
+`Api/DocumentationExampleTests` compiles and runs every documentation example. The generator registers an empty
+pipeline. The Testing project has no code yet. Next: the owner may tag `v1.0.0-alpha.1`; then B4 (generator,
+`rewind_generator`).
 
 ## Projects
 
@@ -114,6 +115,8 @@ Engine (internal)      ScopeContext: [ThreadStatic] innermost scope + process-wi
 Key mechanics:
 
 - **Undo log, not redo log.** A write goes in place; the previous value goes to the journal. Reads cost nothing.
+- **Collections record inverses.** Every mutation of a Rewind collection in a scope records its inverse operation;
+  `Clear` moves the storage itself into the journal. A version counter invalidates enumerators on mutation and undo.
 - **First write per scope only.** Each scope has a unique epoch; a cell remembers the epoch of the scope that last
   recorded it. A nested scope records the cell again, so it can restore what it saw at its mark.
 - **Savepoints are marks.** Rolling back a child undoes the entries above its mark, newest first; committing a
