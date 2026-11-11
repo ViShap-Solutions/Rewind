@@ -3,6 +3,7 @@
     <Project Path="src/ViShap.Rewind/ViShap.Rewind.csproj" />
     <Project Path="src/ViShap.Rewind.Core/ViShap.Rewind.Core.csproj" />
     <Project Path="src/ViShap.Rewind.Generator/ViShap.Rewind.Generator.csproj" />
+    <Project Path="src/ViShap.Rewind.Generator.CodeFixes/ViShap.Rewind.Generator.CodeFixes.csproj" />
     <Project Path="src/ViShap.Rewind.Testing/ViShap.Rewind.Testing.csproj" />
   </Folder>
   <Folder Name="/tests/">

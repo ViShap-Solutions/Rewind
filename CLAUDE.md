@@ -70,12 +70,12 @@ Every file under `internal/` states its class at its head (`internal/README.md`)
 - `internal/performance/` — *plan.* Optimization proposals from measurements, for the owner to decide.
 - `internal/Development-Workflow.md` — *operational* (Russian). Never edited by an agent unless the owner asks.
 
-Current state: **B0–B3 closed; B4 gate holds — awaiting commit.** Core holds the engine of contract §4–§7, the
-collections of §8, the attributes `[Rewindable]`/`[RewindIgnore]` and the seam `ViShap.Rewind.Contracts.RewindProperty`.
-The generator implements the `partial` properties of a `[Rewindable]` class through that seam; `RewindableAnalyzer`
-reports RWD0001–RWD0005 from the same planner. Every QA checkpoint of B1–B4 has its test and INV-01…INV-13 are
-pinned. The Testing project has no code yet. Next: `v1.0.0-alpha.1` on B4's merge commit (D-24), then B5
-(analyzers RWD1001–RWD1005).
+Current state: **B0–B4 closed, `v1.0.0-alpha.1` published; B5 gate holds — awaiting commit.** Core holds the engine
+of contract §4–§7, the collections of §8, the attributes and the seam `ViShap.Rewind.Contracts.RewindProperty`. The
+generator implements `[Rewindable]` partial properties; `RewindableAnalyzer` reports RWD0001–RWD0005 and five
+analyzers report RWD1001–RWD1005, with code fixes for RWD1001 (`using`) and RWD1002 (`AfterCommit`). Every QA
+checkpoint of B1–B5 has its test and INV-01…INV-13 are pinned. The Testing project has no code yet. Next: B6
+(ChangeSet, notifications, history; owner question Q-05 first).
 
 ## Projects
 
@@ -85,8 +85,11 @@ pinned. The Testing project has no code yet. Next: `v1.0.0-alpha.1` on B4's merg
   `analyzers/dotnet/cs`. Runs only in the compiler; no shipped assembly references it. `RewindPlanner` holds every
   rule; `RewindGenerator` emits through `RewindEmitter` from equatable `Model/` plans; `RewindableAnalyzer` reports
   `RWD0001`… from the same planner (a generator-reported diagnostic cannot be suppressed by `#pragma`). `RWD1001`…
-  are the analyzers of B5. Release tracking in `AnalyzerReleases.*.md`; snapshots of emitted code in
+  are reported by one analyzer per rule in `Analyzers/`, sharing `ScopeRegion` (what is inside a scope) and
+  `TypeRules`. Release tracking in `AnalyzerReleases.*.md`; snapshots of emitted code in
   `tests/ViShap.Rewind.Generator.Tests/Snapshots/`, reviewed, never refreshed to make a test pass.
+- `ViShap.Rewind.Generator.CodeFixes` — the code fixes, `netstandard2.0`, the only assembly referencing Roslyn
+  Workspaces; not packable itself, packed into the generator package's `analyzers/dotnet/cs`.
 - `ViShap.Rewind.Testing` — tools for the consumer's tests (contract §14). Depends on Core; not in the
   meta-package; packed by CD from B10.
 - `ViShap.Rewind` — meta-package: references Core and Generator, ships no code.

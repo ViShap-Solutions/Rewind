@@ -34,5 +34,10 @@ public partial class Order
 | RWD0003 | Error | a `partial` property has an `init` accessor or returns by reference |
 | RWD0004 | Warning | a `partial` property has a mutable reference type: only the reference is tracked |
 | RWD0005 | Error | a `partial` property is `static`, an indexer, or has no `set` accessor |
+| RWD1001 | Warning | the scope returned by `Rewind.Begin()` is never disposed |
+| RWD1002 | Warning | a call that changes something outside the process is made directly inside a scope |
+| RWD1003 | Error | an asynchronous block is passed to `Rewind.Run` |
+| RWD1004 | Warning | a `RewindCell<T>` holds a mutable reference type: only the reference is tracked |
+| RWD1005 | Warning | a field of a `[Rewindable]` type is written inside a scope, and a rollback does not restore it |
 
 Each is explained, with its fix, in [the diagnostics documentation](https://github.com/ViShap-Solutions/Rewind/blob/main/docs/diagnostics.md).

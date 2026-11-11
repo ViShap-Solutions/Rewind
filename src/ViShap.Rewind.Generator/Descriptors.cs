@@ -2,7 +2,7 @@ using Microsoft.CodeAnalysis;
 
 namespace ViShap.Rewind.Generator;
 
-/// <summary>The diagnostics <see cref="RewindableAnalyzer"/> reports about rewindable types.</summary>
+/// <summary>Every diagnostic of the package: RWD0xxx about rewindable types, RWD1xxx about the use of scopes.</summary>
 internal static class Descriptors
 {
     /// <summary>The page that explains every diagnostic; each one links to its own section.</summary>
@@ -54,4 +54,49 @@ internal static class Descriptors
         DiagnosticSeverity.Error,
         isEnabledByDefault: true,
         helpLinkUri: HelpRoot + "rwd0005");
+
+    public static readonly DiagnosticDescriptor ScopeLeak = new(
+        "RWD1001",
+        "Scope is never disposed",
+        "The scope returned by Rewind.Begin() is never disposed: it stays the current scope and records every later write; declare it with 'using'",
+        Category,
+        DiagnosticSeverity.Warning,
+        isEnabledByDefault: true,
+        helpLinkUri: HelpRoot + "rwd1001");
+
+    public static readonly DiagnosticDescriptor EffectInScope = new(
+        "RWD1002",
+        "External effect called directly inside a scope",
+        "'{0}' changes something outside the process and a rollback cannot undo it; register it with AfterCommit, or with Effect and a compensation",
+        Category,
+        DiagnosticSeverity.Warning,
+        isEnabledByDefault: true,
+        helpLinkUri: HelpRoot + "rwd1002");
+
+    public static readonly DiagnosticDescriptor AsyncRun = new(
+        "RWD1003",
+        "Asynchronous block passed to Rewind.Run",
+        "Rewind.Run runs its block synchronously: an asynchronous block keeps running after the scope has closed, and its writes after the first await are not tracked",
+        Category,
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true,
+        helpLinkUri: HelpRoot + "rwd1003");
+
+    public static readonly DiagnosticDescriptor MutableCell = new(
+        "RWD1004",
+        "Only the reference is tracked",
+        "RewindCell<{0}> holds a mutable reference type: a rollback restores which object it refers to, not changes made inside that object",
+        Category,
+        DiagnosticSeverity.Warning,
+        isEnabledByDefault: true,
+        helpLinkUri: HelpRoot + "rwd1004");
+
+    public static readonly DiagnosticDescriptor UntrackedField = new(
+        "RWD1005",
+        "Untracked field written inside a scope",
+        "Field '{0}' is written inside a scope but is not tracked: a rollback does not restore it; move it to a partial property",
+        Category,
+        DiagnosticSeverity.Warning,
+        isEnabledByDefault: true,
+        helpLinkUri: HelpRoot + "rwd1005");
 }

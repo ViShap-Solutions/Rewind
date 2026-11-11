@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Reflection;
 using System.Runtime.Loader;
 using System.Text.RegularExpressions;
@@ -40,6 +41,11 @@ public static partial class CodeExamples
 
     private static readonly Lazy<MetadataReference[]> s_references = new(LoadReferences);
 
+    private static readonly Lazy<ImmutableArray<DiagnosticAnalyzer>> s_analyzers = new(() =>
+        [.. typeof(RewindGenerator).Assembly.GetTypes()
+            .Where(type => typeof(DiagnosticAnalyzer).IsAssignableFrom(type) && !type.IsAbstract)
+            .Select(type => (DiagnosticAnalyzer)Activator.CreateInstance(type)!)]);
+
     /// <summary>Returns the documentation pages: every page of <c>docs/</c>, the repository README and every package README.</summary>
     public static IEnumerable<string> Pages()
     {
@@ -66,7 +72,7 @@ public static partial class CodeExamples
 
     /// <summary>
     /// Compiles <paramref name="example"/> as a consumer project of the meta-package would: implicit usings, nullable
-    /// reference types, the latest language version, the source generator and its analyzer. Returns the assembly, or the
+    /// reference types, the latest language version, the source generator and every analyzer of its package. Returns the assembly, or the
     /// errors and warnings that prevented it.
     /// </summary>
     public static (byte[]? Assembly, IReadOnlyList<Diagnostic> Problems) Compile(CodeExample example)
@@ -88,7 +94,7 @@ public static partial class CodeExamples
 
         using var output = new MemoryStream();
         var result = generated.Emit(output);
-        var analyzerDiagnostics = generated.WithAnalyzers([new RewindableAnalyzer()]).GetAnalyzerDiagnosticsAsync().GetAwaiter().GetResult();
+        var analyzerDiagnostics = generated.WithAnalyzers(s_analyzers.Value).GetAnalyzerDiagnosticsAsync().GetAwaiter().GetResult();
         var problems = generatorDiagnostics.Concat(result.Diagnostics).Concat(analyzerDiagnostics)
             .Where(diagnostic => diagnostic.Severity >= DiagnosticSeverity.Warning)
             .ToList();

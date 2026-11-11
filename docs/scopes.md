@@ -114,12 +114,15 @@ static void Pay(RewindCell<string> order, bool approved)
 
 A cell is restored to the value it held when the scope opened, however many times the block wrote it. For a
 reference type, only the reference is restored: a change made inside the referenced object is not undone, so an
-immutable type is the safe choice.
+immutable type is the safe choice. The compiler warns about a cell of a mutable type
+([RWD1004](diagnostics.md#rwd1004)); the example below suppresses the warning to show what it is about.
 
 ```csharp
 using ViShap.Rewind;
 
+#pragma warning disable RWD1004
 var tags = new RewindCell<List<string>>(["a"]);
+#pragma warning restore RWD1004
 var name = new RewindCell<string>("first");
 
 using (Rewind.Begin())

@@ -15,7 +15,7 @@ namespace ViShap.Rewind.Generator;
 /// </summary>
 internal static class RewindPlanner
 {
-    public const string RewindableAttribute = "ViShap.Rewind.RewindableAttribute";
+    public const string RewindableAttribute = TypeRules.RewindableAttribute;
 
     /// <summary>The ending of the name of every file the generator writes.</summary>
     public const string GeneratedSuffix = ".Rewind.g.cs";
@@ -24,21 +24,6 @@ internal static class RewindPlanner
 
     private static readonly SymbolDisplayFormat s_typeFormat = SymbolDisplayFormat.FullyQualifiedFormat
         .AddMiscellaneousOptions(SymbolDisplayMiscellaneousOptions.IncludeNullableReferenceTypeModifier);
-
-    private static readonly ImmutableHashSet<string> s_rewindCollections = ImmutableHashSet.Create(
-        "ViShap.Rewind.RewindList<T>",
-        "ViShap.Rewind.RewindDictionary<TKey, TValue>",
-        "ViShap.Rewind.RewindSet<T>");
-
-    private static readonly ImmutableHashSet<string> s_mutableCollectionInterfaces = ImmutableHashSet.Create(
-        "System.Collections.Generic.ICollection<T>",
-        "System.Collections.ICollection",
-        "System.Collections.IList",
-        "System.Collections.IDictionary");
-
-    /// <summary>Returns whether <paramref name="type"/> carries <c>[Rewindable]</c>.</summary>
-    public static bool IsRewindable(ITypeSymbol type) =>
-        type.GetAttributes().Any(attribute => attribute.AttributeClass?.ToDisplayString() == RewindableAttribute);
 
     /// <summary>Plans the source the generator writes for <paramref name="type"/>.</summary>
     public static TypePlan Plan(INamedTypeSymbol type, CancellationToken cancellationToken)
@@ -91,7 +76,7 @@ internal static class RewindPlanner
 
         if (!property.IsPartialDefinition)
         {
-            var untracked = property.SetMethod is { IsInitOnly: false } && !ignored && !IsRewindCollection(property.Type)
+            var untracked = property.SetMethod is { IsInitOnly: false } && !ignored && !TypeRules.IsRewindCollection(property.Type)
                 && IsAutoSetter(property, cancellationToken);
             return new Verdict(Implement: false, Tracked: false, untracked ? Descriptors.UntrackedProperty : null);
         }
@@ -111,7 +96,7 @@ internal static class RewindPlanner
             return new Verdict(Implement: false, Tracked: false, Descriptors.UnsupportedAccessor);
         }
 
-        return new Verdict(Implement: true, Tracked: !ignored, !ignored && IsMutableReference(property.Type) ? Descriptors.MutableReference : null);
+        return new Verdict(Implement: true, Tracked: !ignored, !ignored && TypeRules.IsMutableReference(property.Type) ? Descriptors.MutableReference : null);
     }
 
     private static PropertyPlan Implementation(IPropertySymbol property, bool tracked, CancellationToken cancellationToken)
@@ -161,62 +146,6 @@ internal static class RewindPlanner
         property.DeclaringSyntaxReferences.Length > 0
         && property.DeclaringSyntaxReferences[0].GetSyntax(cancellationToken) is PropertyDeclarationSyntax { AccessorList: { } accessors }
         && accessors.Accessors.Any(accessor => accessor.IsKind(SyntaxKind.SetAccessorDeclaration) && accessor.Body is null && accessor.ExpressionBody is null);
-
-    private static bool IsRewindCollection(ITypeSymbol type) =>
-        type is INamedTypeSymbol named && s_rewindCollections.Contains(named.OriginalDefinition.ToDisplayString());
-
-    private static bool IsMutableReference(ITypeSymbol type)
-    {
-        if (type.IsValueType || type.TypeKind is TypeKind.TypeParameter or TypeKind.Delegate or TypeKind.Error
-            || type.SpecialType is SpecialType.System_String or SpecialType.System_Object)
-        {
-            return false;
-        }
-
-        if (type.TypeKind == TypeKind.Array)
-        {
-            return true;
-        }
-
-        var ns = type.ContainingNamespace?.ToDisplayString();
-        if (IsRewindCollection(type) || IsRewindable(type) || ns == "System.Collections.Immutable"
-            || (ns == "System.Collections.ObjectModel" && type.Name.StartsWith("ReadOnly", System.StringComparison.Ordinal)))
-        {
-            return false;
-        }
-
-        if (IsMutableCollectionInterface(type) || type.AllInterfaces.Any(IsMutableCollectionInterface))
-        {
-            return true;
-        }
-
-        if (type.TypeKind == TypeKind.Interface)
-        {
-            return false;
-        }
-
-        for (var current = type; current is not null && current.SpecialType != SpecialType.System_Object; current = current.BaseType)
-        {
-            foreach (var member in current.GetMembers())
-            {
-                if (member.IsStatic || member.DeclaredAccessibility != Accessibility.Public)
-                {
-                    continue;
-                }
-
-                if (member is IPropertySymbol { SetMethod: { IsInitOnly: false, DeclaredAccessibility: Accessibility.Public } }
-                    || member is IFieldSymbol { IsReadOnly: false, IsConst: false })
-                {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
-
-    private static bool IsMutableCollectionInterface(ITypeSymbol type) =>
-        type is INamedTypeSymbol named && s_mutableCollectionInterfaces.Contains(named.OriginalDefinition.ToDisplayString());
 
     private static ImmutableArray<TypeDeclarationPlan> ContainingTypes(INamedTypeSymbol type)
     {
