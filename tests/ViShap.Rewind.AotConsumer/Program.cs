@@ -131,6 +131,21 @@ history.Redo();
 Report("History redone", $"{form.Title} {string.Join(",", form.Tags)}");
 Report("Notifications", string.Join(",", raised));
 
+var pending = new RewindCell<int>(0);
+using (new System.Transactions.TransactionScope())
+{
+    Rewind.Run(() => pending.Value = 1);
+}
+
+Report("Transaction rolled back", pending.Value);
+using (var transaction = new System.Transactions.TransactionScope())
+{
+    Rewind.Run(() => pending.Value = 2);
+    transaction.Complete();
+}
+
+Report("Transaction committed", pending.Value);
+
 Report("Effects", string.Join(", ", log));
 Report("Current after all", Rewind.Current is null ? "none" : "open");
 

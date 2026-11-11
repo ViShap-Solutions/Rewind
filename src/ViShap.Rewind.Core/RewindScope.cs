@@ -1,3 +1,5 @@
+using System.Transactions;
+
 namespace ViShap.Rewind;
 
 /// <summary>
@@ -20,6 +22,8 @@ public sealed class RewindScope : IDisposable
     private List<Action>? _afterCommit;
     private List<Action>? _afterRollback;
     private List<Action<ChangeSet>>? _onCommitted;
+    private Transaction? _transaction;
+    private TransactionStatus? _outcome;
     private ScopeState _state;
 
     private RewindScope(RewindScope? parent, bool managed)
@@ -31,6 +35,11 @@ public sealed class RewindScope : IDisposable
         _managed = managed;
         Depth = parent is null ? 0 : parent.Depth + 1;
         Epoch = ScopeContext.NextEpoch();
+        if (parent is null && Transaction.Current is { TransactionInformation.Status: System.Transactions.TransactionStatus.Active } ambient)
+        {
+            _transaction = ambient;
+            ambient.TransactionCompleted += OnTransactionCompleted;
+        }
     }
 
     /// <summary>Gets the nesting depth: 0 for an outermost scope, one more for each enclosing scope.</summary>
@@ -196,45 +205,26 @@ public sealed class RewindScope : IDisposable
             return;
         }
 
-        var notify = _journal.RentNotifications();
-        var changes = _onCommitted is null ? null : _journal.ToChangeSet();
-        _journal.Clear();
         ScopeContext.Set(null);
-
-        List<Exception>? failures = null;
-        if (notify is not null)
+        switch (TransactionStatus())
         {
-            foreach (var entry in notify)
-            {
-                try
-                {
-                    entry.Notify();
-                }
-                catch (Exception exception)
-                {
-                    (failures ??= []).Add(exception);
-                }
-            }
+            case System.Transactions.TransactionStatus.Active:
+                TransactionParticipant.Join(_transaction!, new PendingScope(_journal, _onCommitted, _afterCommit, _afterRollback));
+                return;
 
-            Journal.ReturnNotifications(notify);
+            case System.Transactions.TransactionStatus.Aborted:
+                _state = ScopeState.RolledBack;
+                var rollbackFailures = Completion.Rollback(_journal, _afterRollback);
+                var aborted = new RewindScopeException("The ambient transaction was aborted before the scope committed; the scope was rolled back.");
+                if (rollbackFailures is not null)
+                {
+                    throw new RewindCompensationException(aborted, rollbackFailures);
+                }
+
+                throw aborted;
         }
 
-        if (_onCommitted is not null)
-        {
-            foreach (var observer in _onCommitted)
-            {
-                try
-                {
-                    observer(changes!);
-                }
-                catch (Exception exception)
-                {
-                    (failures ??= []).Add(exception);
-                }
-            }
-        }
-
-        Append(ref failures, RunEffects(_afterCommit));
+        var failures = Completion.Commit(_journal, _onCommitted, _afterCommit);
         if (failures is not null)
         {
             throw new RewindEffectException(failures);
@@ -247,10 +237,51 @@ public sealed class RewindScope : IDisposable
         ScopeContext.Set(null);
         List<Exception>? failures = null;
         _journal.RollbackTo(_mark, ref failures);
-        Append(ref failures, RunEffects(_afterRollback));
+        Append(ref failures, Completion.RunEffects(_afterRollback));
         ScopeContext.Set(_parent);
+        if (TransactionStatus() == System.Transactions.TransactionStatus.Active)
+        {
+            try
+            {
+                _transaction!.Rollback();
+            }
+            catch (Exception exception)
+            {
+                (failures ??= []).Add(exception);
+            }
+        }
+
         return failures;
     }
+
+    /// <summary>
+    /// Returns the status of the ambient transaction the scope joined, or <see langword="null"/> when it joined none. Once
+    /// the transaction has completed, its outcome is the one it reported, read before it was disposed.
+    /// </summary>
+    private TransactionStatus? TransactionStatus()
+    {
+        if (_transaction is null)
+        {
+            return null;
+        }
+
+        if (_outcome is { } outcome)
+        {
+            return outcome;
+        }
+
+        try
+        {
+            return _transaction.TransactionInformation.Status;
+        }
+        catch (ObjectDisposedException)
+        {
+            return null;
+        }
+    }
+
+    private void OnTransactionCompleted(object? sender, TransactionEventArgs e) =>
+        _outcome = e.Transaction?.TransactionInformation.Status;
 
     private void UnwindLeakedChildren(ref List<Exception>? failures)
     {
@@ -298,44 +329,7 @@ public sealed class RewindScope : IDisposable
         }
     }
 
-    private static List<Exception>? RunEffects(List<Action>? effects)
-    {
-        if (effects is null)
-        {
-            return null;
-        }
-
-        List<Exception>? failures = null;
-        foreach (var effect in effects)
-        {
-            try
-            {
-                effect();
-            }
-            catch (Exception exception)
-            {
-                (failures ??= []).Add(exception);
-            }
-        }
-
-        return failures;
-    }
-
-    private static void Append(ref List<Exception>? target, List<Exception>? source)
-    {
-        if (source is null)
-        {
-            return;
-        }
-
-        if (target is null)
-        {
-            target = source;
-            return;
-        }
-
-        target.AddRange(source);
-    }
+    private static void Append(ref List<Exception>? target, List<Exception>? source) => Completion.Append(ref target, source);
 
     private enum ScopeState
     {

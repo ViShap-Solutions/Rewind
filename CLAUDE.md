@@ -70,13 +70,12 @@ Every file under `internal/` states its class at its head (`internal/README.md`)
 - `internal/performance/` — *plan.* Optimization proposals from measurements, for the owner to decide.
 - `internal/Development-Workflow.md` — *operational* (Russian). Never edited by an agent unless the owner asks.
 
-Current state: **B0–B5 closed, `v1.0.0-alpha.1` published; B6 gate holds — awaiting commit.** Core holds the engine
-of contract §4–§7, the collections of §8, `ChangeSet`/`OnCommitted`, change notifications and `RewindHistory` of
-§10, the attributes and the seam `ViShap.Rewind.Contracts` (`RewindProperty.Write`/`WriteAndNotify`,
-`RewindPropertyInfo`). The generator implements `[Rewindable]` partial properties and raises `PropertyChanged` for a
-type implementing `INotifyPropertyChanged`; analyzers report RWD0001–RWD0006 and RWD1001–RWD1005. Every QA checkpoint
-of B1–B6 has its test and INV-01…INV-13 are pinned. The Testing project has no code yet. Next: B7
-(System.Transactions).
+Current state: **B0–B6 closed, `v1.0.0-alpha.1` published; B7 gate holds — awaiting commit.** Core holds the engine
+of contract §4–§7, the collections of §8, `ChangeSet`/notifications/`RewindHistory` of §10, and joins an ambient
+`System.Transactions` transaction (§11); the attributes and the seam `ViShap.Rewind.Contracts`. The generator
+implements `[Rewindable]` partial properties and their notifications; analyzers report RWD0001–RWD0006 and
+RWD1001–RWD1005. Every QA checkpoint of B1–B7 has its test and INV-01…INV-13 are pinned. The Testing project has no
+code yet. Next: B8 (`RewindFile`).
 
 ## Projects
 
@@ -131,6 +130,9 @@ Key mechanics:
   child leaves its entries in place and hands its effect lists to the parent.
 - **After the outermost commit:** notifications (`PropertyChanged` of notifying rewindable types), then
   `OnCommitted` observers with the `ChangeSet` (built only when one is registered), then `AfterCommit` effects.
+- **Ambient transactions.** An outermost scope opened in an active `Transaction.Current` joins it: its commit is
+  pending in the transaction's single `TransactionParticipant` (volatile enlistment) until the outcome; its rollback
+  rolls the transaction back. `Engine/Completion` runs the end of a commit or rollback for both paths.
 - **History replays entries through the recording paths.** `RewindHistory.Undo` undoes a step's entries inside a new
   scope that records them, so that scope's change set is the redo step.
 - **No current scope during rollback and effects.** `ScopeContext` is set to `null` while entries are undone and
