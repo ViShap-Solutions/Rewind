@@ -1,3 +1,5 @@
+using ViShap.Rewind.Tests.Fixtures;
+
 namespace ViShap.Rewind.Tests.Threading;
 
 public sealed class ThreadAffinityTests
@@ -9,7 +11,7 @@ public sealed class ThreadAffinityTests
         var scope = Rewind.Begin();
         cell.Value = 2;
 
-        var thrown = OnOtherThread(() => Record.Exception(() => scope.Commit()));
+        var thrown = OtherThread.Capture(scope.Commit);
 
         Assert.IsType<RewindScopeException>(thrown);
         Assert.True(scope.IsActive);
@@ -22,7 +24,7 @@ public sealed class ThreadAffinityTests
     {
         using var scope = Rewind.Begin();
 
-        var seen = OnOtherThread(() => Rewind.Current);
+        var seen = OtherThread.Run(() => Rewind.Current);
 
         Assert.Null(seen);
         scope.Commit();
@@ -35,18 +37,58 @@ public sealed class ThreadAffinityTests
 
         using (Rewind.Begin())
         {
-            OnOtherThread(() => cell.Value = 2);
+            OtherThread.Run(() => cell.Value = 2);
         }
 
         Assert.Equal(2, cell.Value);
     }
 
-    private static T OnOtherThread<T>(Func<T> func)
+    [Fact]
+    public void Register_FromAnotherThread_ThrowsScopeAndRegistersNothing()
     {
-        T result = default!;
-        var thread = new Thread(() => result = func());
-        thread.Start();
-        thread.Join();
-        return result;
+        var log = new List<string>();
+        var scope = Rewind.Begin();
+
+        var afterCommit = OtherThread.Capture(() => scope.AfterCommit(() => log.Add("after commit")));
+        var afterRollback = OtherThread.Capture(() => scope.AfterRollback(() => log.Add("after rollback")));
+        var effect = OtherThread.Capture(() => scope.Effect(() => log.Add("do"), () => log.Add("undo")));
+
+        Assert.IsType<RewindScopeException>(afterCommit);
+        Assert.IsType<RewindScopeException>(afterRollback);
+        Assert.IsType<RewindScopeException>(effect);
+        scope.Dispose();
+        Assert.Empty(log);
+    }
+
+    [Fact]
+    public void Dispose_OpenScopeFromAnotherThread_ThrowsScopeAndChangesNothing()
+    {
+        var cell = new RewindCell<int>(1);
+        var scope = Rewind.Begin();
+        cell.Value = 2;
+
+        var thrown = OtherThread.Capture(scope.Dispose);
+
+        Assert.IsType<RewindScopeException>(thrown);
+        Assert.True(scope.IsActive);
+        Assert.Equal(2, cell.Value);
+        Assert.Same(scope, Rewind.Current);
+        scope.Dispose();
+        Assert.Equal(1, cell.Value);
+    }
+
+    [Fact]
+    public void Dispose_ClosedScopeFromAnotherThread_DoesNothing()
+    {
+        var cell = new RewindCell<int>(1);
+        var scope = Rewind.Begin();
+        cell.Value = 2;
+        scope.Commit();
+
+        var thrown = OtherThread.Capture(scope.Dispose);
+
+        Assert.Null(thrown);
+        Assert.Equal(2, cell.Value);
+        Assert.Null(Rewind.Current);
     }
 }
