@@ -32,3 +32,71 @@ sealed class RewindCompensationException : RewindException
 sealed class RewindEffectException : RewindException
     RewindEffectException(IReadOnlyList<Exception> failures)
     IReadOnlyList<Exception> Failures { get; }
+sealed class RewindList<T> : IList<T>, IReadOnlyList<T>
+    RewindList()
+    RewindList(IEnumerable<T> collection)
+    int Count { get; }
+    T this[int index] { get; set; }
+    void Add(T item)
+    void AddRange(IEnumerable<T> collection)
+    void Insert(int index, T item)
+    void RemoveAt(int index)
+    bool Remove(T item)
+    void Clear()
+    bool Contains(T item)
+    int IndexOf(T item)
+    void CopyTo(T[] array, int arrayIndex)
+    RewindList<T>.Enumerator GetEnumerator()
+struct RewindList<T>.Enumerator : IEnumerator<T>
+    T Current { get; }
+    bool MoveNext()
+    void Dispose()
+sealed class RewindDictionary<TKey, TValue> : IDictionary<TKey, TValue>, IReadOnlyDictionary<TKey, TValue>
+    RewindDictionary()
+    RewindDictionary(IEqualityComparer<TKey>? comparer)
+    RewindDictionary(IEnumerable<KeyValuePair<TKey, TValue>> collection)
+    RewindDictionary(IEnumerable<KeyValuePair<TKey, TValue>> collection, IEqualityComparer<TKey>? comparer)
+    IEqualityComparer<TKey> Comparer { get; }
+    int Count { get; }
+    ICollection<TKey> Keys { get; }
+    ICollection<TValue> Values { get; }
+    TValue this[TKey key] { get; set; }
+    void Add(TKey key, TValue value)
+    bool TryAdd(TKey key, TValue value)
+    bool Remove(TKey key)
+    bool Remove(TKey key, out TValue value)
+    void Clear()
+    bool ContainsKey(TKey key)
+    bool TryGetValue(TKey key, out TValue value)
+    RewindDictionary<TKey, TValue>.Enumerator GetEnumerator()
+struct RewindDictionary<TKey, TValue>.Enumerator : IEnumerator<KeyValuePair<TKey, TValue>>
+    KeyValuePair<TKey, TValue> Current { get; }
+    bool MoveNext()
+    void Dispose()
+sealed class RewindSet<T> : IReadOnlySet<T>, ISet<T>
+    RewindSet()
+    RewindSet(IEqualityComparer<T>? comparer)
+    RewindSet(IEnumerable<T> collection)
+    RewindSet(IEnumerable<T> collection, IEqualityComparer<T>? comparer)
+    IEqualityComparer<T> Comparer { get; }
+    int Count { get; }
+    bool Add(T item)
+    bool Remove(T item)
+    void Clear()
+    void UnionWith(IEnumerable<T> other)
+    void IntersectWith(IEnumerable<T> other)
+    void ExceptWith(IEnumerable<T> other)
+    void SymmetricExceptWith(IEnumerable<T> other)
+    bool Contains(T item)
+    bool IsSubsetOf(IEnumerable<T> other)
+    bool IsProperSubsetOf(IEnumerable<T> other)
+    bool IsSupersetOf(IEnumerable<T> other)
+    bool IsProperSupersetOf(IEnumerable<T> other)
+    bool Overlaps(IEnumerable<T> other)
+    bool SetEquals(IEnumerable<T> other)
+    void CopyTo(T[] array, int arrayIndex)
+    RewindSet<T>.Enumerator GetEnumerator()
+struct RewindSet<T>.Enumerator : IEnumerator<T>
+    T Current { get; }
+    bool MoveNext()
+    void Dispose()

@@ -36,14 +36,15 @@ public sealed class PublicSurfaceTests
 
         foreach (var type in s_core.GetExportedTypes())
         {
-            Check(DocumentationIds.Of(type), [], type.IsGenericTypeDefinition ? type.GetGenericArguments() : [], returns: false);
+            var ownTypeParameters = type.GetGenericArguments().Skip(type.DeclaringType?.GetGenericArguments().Length ?? 0).ToArray();
+            Check(DocumentationIds.Of(type), [], ownTypeParameters, returns: false);
 
             foreach (var member in VisibleMembers(type))
             {
                 switch (member)
                 {
                     case PropertyInfo property:
-                        Check(DocumentationIds.Of(property), [], [], returns: false);
+                        Check(DocumentationIds.Of(property), property.GetIndexParameters(), [], returns: false);
                         break;
                     case MethodInfo method:
                         Check(DocumentationIds.Of(method), method.GetParameters(), method.IsGenericMethodDefinition ? method.GetGenericArguments() : [], returns: method.ReturnType != typeof(void));

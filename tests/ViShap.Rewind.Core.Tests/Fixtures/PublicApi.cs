@@ -92,7 +92,7 @@ public static class PublicApi
             .Select(candidate => TypeName(candidate, null))
             .OrderBy(name => name, StringComparer.Ordinal));
 
-        var header = $"{kind} {ShortName(type)}{GenericParameters(type)}";
+        var header = $"{kind} {DeclaredName(type)}";
         return bases.Count == 0 ? header : $"{header} : {string.Join(", ", bases)}";
     }
 
@@ -123,7 +123,11 @@ public static class PublicApi
 
             accessors.Append(" }");
             var accessor = property.GetAccessors(true).First(IsVisible);
-            yield return $"{Modifiers(accessor, implicitStatic)}{TypeName(property.PropertyType, context.Create(property))} {property.Name} {accessors}";
+            var indexParameters = property.GetIndexParameters();
+            var name = indexParameters.Length == 0
+                ? property.Name
+                : $"this[{string.Join(", ", indexParameters.Select(parameter => $"{TypeName(parameter.ParameterType, context.Create(parameter))} {parameter.Name}"))}]";
+            yield return $"{Modifiers(accessor, implicitStatic)}{TypeName(property.PropertyType, context.Create(property))} {name} {accessors}";
         }
 
         foreach (var method in type.GetMethods(Declared).Where(method => IsVisible(method) && !method.IsSpecialName))
@@ -213,10 +217,16 @@ public static class PublicApi
         return clauses.ToString();
     }
 
-    private static string GenericParameters(Type type) =>
-        type.IsGenericTypeDefinition
-            ? "<" + string.Join(", ", type.GetGenericArguments().Select(argument => argument.Name)) + ">"
-            : string.Empty;
+    private static string DeclaredName(Type type) => Qualified(type, type.GetGenericArguments().Select(argument => argument.Name).ToArray());
+
+    private static string Qualified(Type type, string[] arguments)
+    {
+        var outer = type.DeclaringType;
+        var outerCount = outer?.GetGenericArguments().Length ?? 0;
+        var own = arguments.Skip(outerCount).ToArray();
+        var name = own.Length == 0 ? ShortName(type) : $"{ShortName(type)}<{string.Join(", ", own)}>";
+        return outer is null ? name : $"{Qualified(outer, arguments.Take(outerCount).ToArray())}.{name}";
+    }
 
     private static string ShortName(Type type)
     {
@@ -241,12 +251,16 @@ public static class PublicApi
         {
             name = keyword;
         }
-        else if (type.IsGenericType)
+        else if (type.IsGenericParameter)
+        {
+            name = type.Name;
+        }
+        else if (type.IsGenericType || type.DeclaringType is not null)
         {
             var arguments = type.GetGenericArguments();
             var argumentNames = arguments.Select((argument, index) =>
                 TypeName(argument, info is not null && index < info.GenericTypeArguments.Length ? info.GenericTypeArguments[index] : null));
-            name = $"{ShortName(type)}<{string.Join(", ", argumentNames)}>";
+            name = Qualified(type, argumentNames.ToArray());
         }
         else
         {
