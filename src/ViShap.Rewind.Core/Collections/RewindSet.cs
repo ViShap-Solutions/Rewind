@@ -337,25 +337,29 @@ public sealed class RewindSet<T> : ISet<T>, IReadOnlySet<T>
         }
     }
 
-    private sealed class RemoveEntry(RewindSet<T> set, T item) : JournalEntry
+    private sealed class RemoveEntry(RewindSet<T> set, T item) : CollectionEntry(set)
     {
         public override void Undo()
         {
             set._items.Remove(item);
             set._version++;
         }
+
+        public override void UndoRecorded() => set.Remove(item);
     }
 
-    private sealed class AddEntry(RewindSet<T> set, T item) : JournalEntry
+    private sealed class AddEntry(RewindSet<T> set, T item) : CollectionEntry(set)
     {
         public override void Undo()
         {
             set._items.Add(item);
             set._version++;
         }
+
+        public override void UndoRecorded() => set.Add(item);
     }
 
-    private sealed class BulkEntry(RewindSet<T> set, List<T>? added, List<T>? removed) : JournalEntry
+    private sealed class BulkEntry(RewindSet<T> set, List<T>? added, List<T>? removed) : CollectionEntry(set)
     {
         public override void Undo()
         {
@@ -377,12 +381,25 @@ public sealed class RewindSet<T> : ISet<T>, IReadOnlySet<T>
 
             set._version++;
         }
+
+        public override void UndoRecorded()
+        {
+            Undo();
+            ScopeContext.Current?.Journal.Add(new BulkEntry(set, removed, added));
+        }
     }
 
-    private sealed class RestoreEntry(RewindSet<T> set, HashSet<T> items) : JournalEntry
+    private sealed class RestoreEntry(RewindSet<T> set, HashSet<T> items) : CollectionEntry(set)
     {
         public override void Undo()
         {
+            set._items = items;
+            set._version++;
+        }
+
+        public override void UndoRecorded()
+        {
+            ScopeContext.Current?.Journal.Add(new RestoreEntry(set, set._items));
             set._items = items;
             set._version++;
         }

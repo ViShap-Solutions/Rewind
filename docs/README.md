@@ -10,6 +10,7 @@ code.
 | effects.md | `AfterCommit`, `AfterRollback`, `Effect`: binding external work to the outcome |
 | exceptions.md | What each exception means and what state it leaves |
 | rewindable-types.md | `[Rewindable]` classes: tracked properties with ordinary syntax, `[RewindIgnore]`, diagnostics |
+| changes-and-history.md | `ChangeSet` and `OnCommitted`, `PropertyChanged` after the commit, undo and redo with `RewindHistory` |
 | diagnostics.md | Every `RWDnnnn` diagnostic: what it means and how to fix it |
 | collections.md | `RewindList<T>`, `RewindDictionary<TKey, TValue>`, `RewindSet<T>`: rolling back mutations, `Clear`, enumeration |
 

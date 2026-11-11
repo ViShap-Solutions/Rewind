@@ -5,11 +5,11 @@ partial class Counter
 {
     private int __rewindValue;
     private long __rewindValueEpoch;
-    private static readonly global::System.Action<global::Counter, int> __rewindValueRestore = static (owner, value) => owner.__rewindValue = value;
+    private static readonly global::ViShap.Rewind.Contracts.RewindPropertyInfo<global::Counter, int> __rewindValueInfo = new("Value", static owner => owner.__rewindValue, static (owner, value) => owner.__rewindValue = value);
 
     public partial int Value
     {
         get => __rewindValue;
-        set => global::ViShap.Rewind.Contracts.RewindProperty.Write(this, ref __rewindValue, ref __rewindValueEpoch, value, __rewindValueRestore);
+        set => global::ViShap.Rewind.Contracts.RewindProperty.Write(this, ref __rewindValue, ref __rewindValueEpoch, value, __rewindValueInfo);
     }
 }

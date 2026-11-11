@@ -12,6 +12,7 @@ sealed class RewindScope : IDisposable
     bool IsActive { get; }
     void AfterCommit(Action action)
     void AfterRollback(Action action)
+    void OnCommitted(Action<ChangeSet> action)
     void Effect(Action do, Action undo)
     void Commit()
     void Dispose()
@@ -105,4 +106,26 @@ sealed class RewindableAttribute : Attribute
 sealed class RewindIgnoreAttribute : Attribute
     RewindIgnoreAttribute()
 static class ViShap.Rewind.Contracts.RewindProperty
-    void Write<TOwner, T>(TOwner owner, ref T field, ref long epoch, T value, Action<TOwner, T> restore) where TOwner : class
+    void Write<TOwner, T>(TOwner owner, ref T field, ref long epoch, T value, RewindPropertyInfo<TOwner, T> property) where TOwner : class
+    void WriteAndNotify<TOwner, T>(TOwner owner, ref T field, ref long epoch, T value, RewindPropertyInfo<TOwner, T> property) where TOwner : class
+sealed class ViShap.Rewind.Contracts.RewindPropertyInfo<TOwner, T>
+    RewindPropertyInfo(string name, Func<TOwner, T> get, Action<TOwner, T> set)
+    RewindPropertyInfo(string name, Func<TOwner, T> get, Action<TOwner, T> set, Action<TOwner> notify)
+    string Name { get; }
+sealed class ChangeSet
+    IReadOnlyList<Change> Changes { get; }
+    bool IsEmpty { get; }
+sealed class Change
+    object Owner { get; }
+    string? Member { get; }
+    object? OldValue { get; }
+    object? NewValue { get; }
+sealed class RewindHistory
+    RewindHistory()
+    bool CanUndo { get; }
+    bool CanRedo { get; }
+    void Run(Action action)
+    void Run(Action<RewindScope> action)
+    void Undo()
+    void Redo()
+    void Clear()

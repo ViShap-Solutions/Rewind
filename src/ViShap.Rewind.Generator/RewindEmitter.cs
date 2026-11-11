@@ -8,6 +8,12 @@ internal static class RewindEmitter
 {
     private const string Write = "global::ViShap.Rewind.Contracts.RewindProperty.Write";
 
+    private const string WriteAndNotify = "global::ViShap.Rewind.Contracts.RewindProperty.WriteAndNotify";
+
+    private const string Info = "global::ViShap.Rewind.Contracts.RewindPropertyInfo";
+
+    private const string Args = "global::System.ComponentModel.PropertyChangedEventArgs";
+
     /// <summary>Returns the source implementing the partial properties of <paramref name="plan"/>.</summary>
     public static string Emit(TypePlan plan)
     {
@@ -45,7 +51,7 @@ internal static class RewindEmitter
                 source.Append('\n');
             }
 
-            Property(source, depth, plan.Properties[i], plan.OwnerName);
+            Property(source, depth, plan.Properties[i], plan.OwnerName, plan.Notify);
         }
 
         while (depth > 0)
@@ -57,16 +63,30 @@ internal static class RewindEmitter
         return source.ToString();
     }
 
-    private static void Property(StringBuilder source, int depth, PropertyPlan property, string owner)
+    private static void Property(StringBuilder source, int depth, PropertyPlan property, string owner, string notify)
     {
         var storage = "__rewind" + property.Name;
         var initializer = property.ReferenceLike ? " = default!" : string.Empty;
+        var notifies = property.Tracked && notify != NotifyKind.None;
 
         Line(source, depth, $"private {property.Type} {storage}{initializer};");
         if (property.Tracked)
         {
             Line(source, depth, $"private long {storage}Epoch;");
-            Line(source, depth, $"private static readonly global::System.Action<{owner}, {property.Type}> {storage}Restore = static (owner, value) => owner.{storage} = value;");
+            if (notify is NotifyKind.ArgsMethod or NotifyKind.Event)
+            {
+                Line(source, depth, $"private static readonly {Args} {storage}Changed = new(\"{property.Name}\");");
+            }
+
+            var accessors = $"\"{property.Name}\", static owner => owner.{storage}, static (owner, value) => owner.{storage} = value";
+            var raise = notify switch
+            {
+                NotifyKind.NameMethod => $", static owner => owner.OnPropertyChanged(\"{property.Name}\")",
+                NotifyKind.ArgsMethod => $", static owner => owner.OnPropertyChanged({storage}Changed)",
+                NotifyKind.Event => $", static owner => owner.PropertyChanged?.Invoke(owner, {storage}Changed)",
+                _ => string.Empty,
+            };
+            Line(source, depth, $"private static readonly {Info}<{owner}, {property.Type}> {storage}Info = new({accessors}{raise});");
         }
 
         source.Append('\n');
@@ -74,7 +94,7 @@ internal static class RewindEmitter
         Line(source, depth, "{");
         Line(source, depth + 1, $"{Prefix(property.GetterModifiers)}get => {storage};");
         Line(source, depth + 1, property.Tracked
-            ? $"{Prefix(property.SetterModifiers)}set => {Write}(this, ref {storage}, ref {storage}Epoch, value, {storage}Restore);"
+            ? $"{Prefix(property.SetterModifiers)}set => {(notifies ? WriteAndNotify : Write)}(this, ref {storage}, ref {storage}Epoch, value, {storage}Info);"
             : $"{Prefix(property.SetterModifiers)}set => {storage} = value;");
         Line(source, depth, "}");
     }

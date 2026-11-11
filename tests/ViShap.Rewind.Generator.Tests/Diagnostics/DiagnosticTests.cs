@@ -220,6 +220,65 @@ public sealed class DiagnosticTests
     }
 
     [Fact]
+    public void RWD0006_NotifyingTypeWithNothingToCall_ReportedAtTypeName()
+    {
+        var run = GeneratorHarness.Run("""
+            using System.ComponentModel;
+            using ViShap.Rewind;
+
+            public abstract class Observable : INotifyPropertyChanged
+            {
+                public event PropertyChangedEventHandler? PropertyChanged;
+
+                private void Raise(string name) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+            }
+
+            [Rewindable]
+            public partial class Order : Observable
+            {
+                public partial decimal Total { get; set; }
+            }
+            """);
+
+        var diagnostic = Assert.Single(run.AnalyzerDiagnostics);
+        Assert.Equal("RWD0006", diagnostic.Id);
+        Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
+        Assert.Equal("Order", Text(diagnostic));
+        Assert.Contains("RewindProperty.Write(", run.Sources["Order.Rewind.g.cs"]);
+        Assert.DoesNotContain(run.CompilationProblems, problem => problem.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Fact]
+    public void RWD0006_TypesThatCanNotify_NotReported()
+    {
+        var run = GeneratorHarness.Run("""
+            using System.ComponentModel;
+            using ViShap.Rewind;
+
+            public abstract class Observable : INotifyPropertyChanged
+            {
+                public event PropertyChangedEventHandler? PropertyChanged;
+
+                protected void OnPropertyChanged(string? name) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+            }
+
+            [Rewindable] public partial class Derived : Observable { public partial int A { get; set; } }
+
+            [Rewindable]
+            public partial class Own : INotifyPropertyChanged
+            {
+                public event PropertyChangedEventHandler? PropertyChanged;
+                public partial int B { get; set; }
+            }
+
+            [Rewindable] public partial class Silent { public partial int C { get; set; } }
+            """);
+
+        Assert.Empty(run.AnalyzerDiagnostics);
+        Assert.Empty(run.CompilationProblems);
+    }
+
+    [Fact]
     public void UserImplementedPartialProperty_IsLeftAlone()
     {
         var run = GeneratorHarness.Run("""
@@ -246,7 +305,7 @@ public sealed class DiagnosticTests
 
         foreach (var (id, severity) in new[]
         {
-            ("RWD0001", "Error"), ("RWD0002", "Warning"), ("RWD0003", "Error"), ("RWD0004", "Warning"), ("RWD0005", "Error"),
+            ("RWD0001", "Error"), ("RWD0002", "Warning"), ("RWD0003", "Error"), ("RWD0004", "Warning"), ("RWD0005", "Error"), ("RWD0006", "Warning"),
             ("RWD1001", "Warning"), ("RWD1002", "Warning"), ("RWD1003", "Error"), ("RWD1004", "Warning"), ("RWD1005", "Warning"),
         })
         {
@@ -265,7 +324,7 @@ public sealed class DiagnosticTests
             .SelectMany(type => ((Microsoft.CodeAnalysis.Diagnostics.DiagnosticAnalyzer)Activator.CreateInstance(type)!).SupportedDiagnostics)
             .ToList();
 
-        Assert.Equal(10, descriptors.Count);
+        Assert.Equal(11, descriptors.Count);
         foreach (var descriptor in descriptors)
         {
             Assert.Equal($"https://github.com/ViShap-Solutions/Rewind/blob/main/docs/diagnostics.md#{descriptor.Id.ToLowerInvariant()}", descriptor.HelpLinkUri);

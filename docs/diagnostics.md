@@ -11,6 +11,7 @@ silently miss something. An identifier never changes meaning. A warning can be s
 | [RWD0003](#rwd0003) | Error | a `partial` property has an `init` accessor or returns by reference |
 | [RWD0004](#rwd0004) | Warning | a `partial` property has a mutable reference type: only the reference is tracked |
 | [RWD0005](#rwd0005) | Error | a `partial` property is `static`, an indexer, or has no `set` accessor |
+| [RWD0006](#rwd0006) | Warning | a `[Rewindable]` class implements `INotifyPropertyChanged` but has nothing generated code can call to raise it |
 | [RWD1001](#rwd1001) | Warning | the scope returned by `Rewind.Begin()` is never disposed |
 | [RWD1002](#rwd1002) | Warning | a call that changes something outside the process is made directly inside a scope |
 | [RWD1003](#rwd1003) | Error | an asynchronous block is passed to `Rewind.Run` |
@@ -53,6 +54,15 @@ whose own properties are tracked. If only replacing the reference matters, suppr
 **A partial property cannot be tracked** (error). The generator implements instance properties with a `get` and a
 `set` accessor. A `static` property, an indexer, or a property without a `set` accessor has no implementation it can
 write. Make the property an instance property with `get` and `set`, or implement it yourself.
+
+## RWD0006
+
+**Change notifications cannot be raised** (warning). The class implements `INotifyPropertyChanged`, so its tracked
+properties should raise `PropertyChanged` — once after the outermost scope commits, or at once for a write made with
+no scope open. Generated code raises it through the class's `OnPropertyChanged(string)`, otherwise its
+`OnPropertyChanged(PropertyChangedEventArgs)`, otherwise its own field-like `PropertyChanged` event. The class has
+none it can call — the method is private to a base class, or the event has custom accessors — so no notification
+is raised. Add a `protected` `OnPropertyChanged(string)` that raises the event.
 
 ## RWD1001
 

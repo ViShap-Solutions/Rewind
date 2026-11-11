@@ -7,13 +7,31 @@ namespace ViShap.Rewind.Generator.Model;
 /// <param name="Declaration">The partial declaration of the type itself.</param>
 /// <param name="OwnerName">The fully qualified name of the type, for the restore delegates.</param>
 /// <param name="Properties">The partial properties to implement, in declaration order.</param>
+/// <param name="Notify">How the type raises a change notification: <see cref="NotifyKind"/>.</param>
 internal sealed record TypePlan(
     string HintName,
     string? Namespace,
     EquatableArray<TypeDeclarationPlan> ContainingTypes,
     TypeDeclarationPlan Declaration,
     string OwnerName,
-    EquatableArray<PropertyPlan> Properties);
+    EquatableArray<PropertyPlan> Properties,
+    string Notify);
+
+/// <summary>How generated code raises the change notification of a type that implements <c>INotifyPropertyChanged</c>.</summary>
+internal static class NotifyKind
+{
+    /// <summary>The type raises no notification.</summary>
+    public const string None = "";
+
+    /// <summary>Through its <c>OnPropertyChanged(string)</c>.</summary>
+    public const string NameMethod = "name";
+
+    /// <summary>Through its <c>OnPropertyChanged(PropertyChangedEventArgs)</c>.</summary>
+    public const string ArgsMethod = "args";
+
+    /// <summary>Through its field-like <c>PropertyChanged</c> event.</summary>
+    public const string Event = "event";
+}
 
 /// <summary>A partial type declaration: its keyword and its name with type parameters.</summary>
 /// <param name="Keyword">The declaration keyword: <c>class</c>, <c>record</c>, <c>struct</c>, <c>record struct</c> or <c>interface</c>.</param>

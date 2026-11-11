@@ -55,6 +55,15 @@ internal static class Descriptors
         isEnabledByDefault: true,
         helpLinkUri: HelpRoot + "rwd0005");
 
+    public static readonly DiagnosticDescriptor NoNotification = new(
+        "RWD0006",
+        "Change notifications cannot be raised",
+        "'{0}' implements INotifyPropertyChanged but has no OnPropertyChanged(string), OnPropertyChanged(PropertyChangedEventArgs) or field-like PropertyChanged event that generated code can call: its tracked properties raise no notification",
+        Category,
+        DiagnosticSeverity.Warning,
+        isEnabledByDefault: true,
+        helpLinkUri: HelpRoot + "rwd0006");
+
     public static readonly DiagnosticDescriptor ScopeLeak = new(
         "RWD1001",
         "Scope is never disposed",

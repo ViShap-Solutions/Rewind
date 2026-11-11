@@ -7,42 +7,42 @@ namespace Shop
     {
         private decimal __rewindBalance;
         private long __rewindBalanceEpoch;
-        private static readonly global::System.Action<global::Shop.Account, decimal> __rewindBalanceRestore = static (owner, value) => owner.__rewindBalance = value;
+        private static readonly global::ViShap.Rewind.Contracts.RewindPropertyInfo<global::Shop.Account, decimal> __rewindBalanceInfo = new("Balance", static owner => owner.__rewindBalance, static (owner, value) => owner.__rewindBalance = value);
 
         public partial decimal Balance
         {
             get => __rewindBalance;
-            private set => global::ViShap.Rewind.Contracts.RewindProperty.Write(this, ref __rewindBalance, ref __rewindBalanceEpoch, value, __rewindBalanceRestore);
+            private set => global::ViShap.Rewind.Contracts.RewindProperty.Write(this, ref __rewindBalance, ref __rewindBalanceEpoch, value, __rewindBalanceInfo);
         }
 
         private string? __rewindNote;
         private long __rewindNoteEpoch;
-        private static readonly global::System.Action<global::Shop.Account, string?> __rewindNoteRestore = static (owner, value) => owner.__rewindNote = value;
+        private static readonly global::ViShap.Rewind.Contracts.RewindPropertyInfo<global::Shop.Account, string?> __rewindNoteInfo = new("Note", static owner => owner.__rewindNote, static (owner, value) => owner.__rewindNote = value);
 
         public virtual partial string? Note
         {
             get => __rewindNote;
-            set => global::ViShap.Rewind.Contracts.RewindProperty.Write(this, ref __rewindNote, ref __rewindNoteEpoch, value, __rewindNoteRestore);
+            set => global::ViShap.Rewind.Contracts.RewindProperty.Write(this, ref __rewindNote, ref __rewindNoteEpoch, value, __rewindNoteInfo);
         }
 
         private string __rewindOwner = default!;
         private long __rewindOwnerEpoch;
-        private static readonly global::System.Action<global::Shop.Account, string> __rewindOwnerRestore = static (owner, value) => owner.__rewindOwner = value;
+        private static readonly global::ViShap.Rewind.Contracts.RewindPropertyInfo<global::Shop.Account, string> __rewindOwnerInfo = new("Owner", static owner => owner.__rewindOwner, static (owner, value) => owner.__rewindOwner = value);
 
         public required partial string Owner
         {
             get => __rewindOwner;
-            set => global::ViShap.Rewind.Contracts.RewindProperty.Write(this, ref __rewindOwner, ref __rewindOwnerEpoch, value, __rewindOwnerRestore);
+            set => global::ViShap.Rewind.Contracts.RewindProperty.Write(this, ref __rewindOwner, ref __rewindOwnerEpoch, value, __rewindOwnerInfo);
         }
 
         private int __rewindVersion;
         private long __rewindVersionEpoch;
-        private static readonly global::System.Action<global::Shop.Account, int> __rewindVersionRestore = static (owner, value) => owner.__rewindVersion = value;
+        private static readonly global::ViShap.Rewind.Contracts.RewindPropertyInfo<global::Shop.Account, int> __rewindVersionInfo = new("Version", static owner => owner.__rewindVersion, static (owner, value) => owner.__rewindVersion = value);
 
         protected internal partial int Version
         {
             get => __rewindVersion;
-            set => global::ViShap.Rewind.Contracts.RewindProperty.Write(this, ref __rewindVersion, ref __rewindVersionEpoch, value, __rewindVersionRestore);
+            set => global::ViShap.Rewind.Contracts.RewindProperty.Write(this, ref __rewindVersion, ref __rewindVersionEpoch, value, __rewindVersionInfo);
         }
 
         private int __rewindViewCount;
