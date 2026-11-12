@@ -106,10 +106,27 @@ Console.WriteLine(stock.Value);               // 5
 
 ## Failures at the end of the transaction
 
-The scope's deferred work runs while the transaction completes, so its failures surface from disposing the
-`TransactionScope`: a failing `AfterCommit` effect or notification as `RewindEffectException`, with the state
-committed; a failing compensation at a rollback as `RewindCompensationException`, with the state restored.
+The scope's deferred work runs once the transaction has completed and every participant of it has its outcome, so
+its failures surface from disposing the `TransactionScope`: a failing `AfterCommit` effect or notification as
+`RewindEffectException`, with the state committed; a failing compensation at a rollback as
+`RewindCompensationException`, with the state restored.
+
+A transaction can also complete on another thread — a distributed transaction, or one that times out. Then nothing is
+thrown, since no caller would receive it; the failures are counted by the `rewind.effect.failures` and
+`rewind.compensation.failures` metrics ([observability.md](observability.md)).
 
 If the outcome of a distributed transaction is in doubt, the in-memory changes stay and their notifications and
 `OnCommitted` observers run, but neither `AfterCommit` nor `AfterRollback` effects do: nothing is announced that may
 not have happened.
+
+## While the transaction is open
+
+A scope that joined a transaction is closed but its outcome is not final, and Rewind does not isolate it: its changes
+are visible to everyone, and anyone can write the same state. Two consequences:
+
+- if the transaction rolls back, the state the scope changed returns to what it was before the scope — over anything
+  written to it since, even by another scope that committed. Until the transaction ends, leave that state to the code
+  inside the transaction;
+- if the transaction times out, it is rolled back on a timer thread, which restores the state while your code may
+  still be running and writing it. Give the `TransactionScope` a timeout longer than the work it covers, and stop
+  using that state once a timeout is possible.

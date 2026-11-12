@@ -10,12 +10,19 @@ internal sealed record PendingScope(Journal Journal, List<Action<ChangeSet>>? Ob
 /// The volatile resource manager through which the scopes of one transaction follow its outcome. There is one per
 /// transaction, so the scopes committed in it are rolled back together, newest first.
 /// </summary>
+/// <remarks>
+/// Its notifications only acknowledge the outcome; the pending scopes are completed when the transaction raises
+/// <see cref="Transaction.TransactionCompleted"/>, once every participant has its outcome. A failure is thrown from
+/// there only on the thread where the first scope joined — the call that completes a local transaction; on any other
+/// thread it is left to the diagnostics, since an exception there would reach no caller.
+/// </remarks>
 internal sealed class TransactionParticipant : IEnlistmentNotification
 {
     private static readonly ConditionalWeakTable<Transaction, TransactionParticipant> s_participants = new();
 
     private readonly Lock _gate = new();
     private readonly List<PendingScope> _pending = [];
+    private readonly int _joinedOn = Environment.CurrentManagedThreadId;
 
     /// <summary>Adds <paramref name="scope"/> to the participant of <paramref name="transaction"/>, enlisting one when it is the first.</summary>
     public static void Join(Transaction transaction, PendingScope scope)
@@ -24,6 +31,7 @@ internal sealed class TransactionParticipant : IEnlistmentNotification
         {
             var created = new TransactionParticipant();
             joined.EnlistVolatile(created, EnlistmentOptions.None);
+            joined.TransactionCompleted += created.OnTransactionCompleted;
             return created;
         });
 
@@ -41,35 +49,30 @@ internal sealed class TransactionParticipant : IEnlistmentNotification
     public void Prepare(PreparingEnlistment preparingEnlistment) => preparingEnlistment.Prepared();
 
     /// <inheritdoc />
-    public void Commit(Enlistment enlistment)
-    {
-        var failures = Committed();
-        enlistment.Done();
-        if (failures is not null)
-        {
-            throw new RewindEffectException(failures);
-        }
-    }
+    public void Commit(Enlistment enlistment) => enlistment.Done();
 
     /// <inheritdoc />
-    public void Rollback(Enlistment enlistment)
-    {
-        var failures = RolledBack();
-        enlistment.Done();
-        if (failures is not null)
-        {
-            throw new RewindCompensationException(null, failures);
-        }
-    }
+    public void Rollback(Enlistment enlistment) => enlistment.Done();
 
     /// <inheritdoc />
-    public void InDoubt(Enlistment enlistment)
+    public void InDoubt(Enlistment enlistment) => enlistment.Done();
+
+    /// <summary>
+    /// Completes the pending scopes with the transaction's outcome, and throws their failures when this is the thread where
+    /// the first scope joined.
+    /// </summary>
+    private void OnTransactionCompleted(object? sender, TransactionEventArgs e)
     {
-        var failures = InDoubt();
-        enlistment.Done();
-        if (failures is not null)
+        Exception? failure = (e.Transaction?.TransactionInformation.Status) switch
         {
-            throw new RewindEffectException(failures);
+            TransactionStatus.Committed => Committed() is { } committed ? new RewindEffectException(committed) : null,
+            TransactionStatus.InDoubt => InDoubt() is { } inDoubt ? new RewindEffectException(inDoubt) : null,
+            _ => RolledBack() is { } rolledBack ? new RewindCompensationException(null, rolledBack) : null,
+        };
+
+        if (failure is not null && Environment.CurrentManagedThreadId == _joinedOn)
+        {
+            throw failure;
         }
     }
 

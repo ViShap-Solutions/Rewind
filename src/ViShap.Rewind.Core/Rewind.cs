@@ -33,7 +33,7 @@ public static class Rewind
     /// <exception cref="ArgumentNullException"><paramref name="action"/> is <see langword="null"/>.</exception>
     /// <exception cref="RewindCompensationException">The block threw and a compensation or a rollback effect also threw.</exception>
     /// <exception cref="RewindEffectException">The state was committed and an effect registered with <see cref="RewindScope.AfterCommit"/> threw.</exception>
-    /// <exception cref="RewindScopeException">The block left a scope it began open.</exception>
+    /// <exception cref="RewindScopeException">The block left a scope it began open, or the ambient transaction the scope joined was aborted before the commit.</exception>
     public static void Run(Action action)
     {
         ArgumentNullException.ThrowIfNull(action);
@@ -61,7 +61,7 @@ public static class Rewind
     /// <exception cref="ArgumentNullException"><paramref name="action"/> is <see langword="null"/>.</exception>
     /// <exception cref="RewindCompensationException">The block threw and a compensation or a rollback effect also threw.</exception>
     /// <exception cref="RewindEffectException">The state was committed and an effect registered with <see cref="RewindScope.AfterCommit"/> threw.</exception>
-    /// <exception cref="RewindScopeException">The block left a scope it began open.</exception>
+    /// <exception cref="RewindScopeException">The block left a scope it began open, or the ambient transaction the scope joined was aborted before the commit.</exception>
     public static void Run(Action<RewindScope> action)
     {
         ArgumentNullException.ThrowIfNull(action);
@@ -91,7 +91,7 @@ public static class Rewind
     /// <exception cref="ArgumentNullException"><paramref name="action"/> is <see langword="null"/>.</exception>
     /// <exception cref="RewindCompensationException">The block threw and a compensation or a rollback effect also threw.</exception>
     /// <exception cref="RewindEffectException">The state was committed and an effect registered with <see cref="RewindScope.AfterCommit"/> threw.</exception>
-    /// <exception cref="RewindScopeException">The block left a scope it began open.</exception>
+    /// <exception cref="RewindScopeException">The block left a scope it began open, or the ambient transaction the scope joined was aborted before the commit.</exception>
     public static void Run<TState>(TState state, Action<TState> action)
     {
         ArgumentNullException.ThrowIfNull(action);
@@ -120,7 +120,7 @@ public static class Rewind
     /// <exception cref="ArgumentNullException"><paramref name="operation"/> is a <see langword="null"/> reference.</exception>
     /// <exception cref="RewindCompensationException">The operation threw and a compensation or a rollback effect also threw.</exception>
     /// <exception cref="RewindEffectException">The state was committed and an effect registered with <see cref="RewindScope.AfterCommit"/> threw.</exception>
-    /// <exception cref="RewindScopeException">The operation left a scope it began open.</exception>
+    /// <exception cref="RewindScopeException">The operation left a scope it began open, or the ambient transaction the scope joined was aborted before the commit.</exception>
     public static void Run<TOperation>(TOperation operation)
         where TOperation : IRewindOperation
     {
@@ -153,7 +153,7 @@ public static class Rewind
     /// <param name="func">The block to run.</param>
     /// <returns>The value <paramref name="func"/> returned.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="func"/> is <see langword="null"/>.</exception>
-    /// <exception cref="RewindScopeException"><typeparamref name="TResult"/> is awaitable, so the block would outlive its scope; or the block left a scope it began open.</exception>
+    /// <exception cref="RewindScopeException"><typeparamref name="TResult"/> is awaitable, so the block would outlive its scope; the block left a scope it began open; or the ambient transaction the scope joined was aborted before the commit.</exception>
     /// <exception cref="RewindCompensationException">The block threw and a compensation or a rollback effect also threw.</exception>
     /// <exception cref="RewindEffectException">The state was committed and an effect registered with <see cref="RewindScope.AfterCommit"/> threw.</exception>
     public static TResult Run<TResult>(Func<TResult> func)
@@ -186,7 +186,7 @@ public static class Rewind
     /// <param name="func">The block to run. It must not commit or dispose the scope it receives.</param>
     /// <returns>The value <paramref name="func"/> returned.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="func"/> is <see langword="null"/>.</exception>
-    /// <exception cref="RewindScopeException"><typeparamref name="TResult"/> is awaitable, so the block would outlive its scope; or the block left a scope it began open.</exception>
+    /// <exception cref="RewindScopeException"><typeparamref name="TResult"/> is awaitable, so the block would outlive its scope; the block left a scope it began open; or the ambient transaction the scope joined was aborted before the commit.</exception>
     /// <exception cref="RewindCompensationException">The block threw and a compensation or a rollback effect also threw.</exception>
     /// <exception cref="RewindEffectException">The state was committed and an effect registered with <see cref="RewindScope.AfterCommit"/> threw.</exception>
     public static TResult Run<TResult>(Func<RewindScope, TResult> func)
@@ -223,7 +223,8 @@ public static class Rewind
     /// <exception cref="ArgumentNullException"><paramref name="func"/> is <see langword="null"/>.</exception>
     /// <exception cref="RewindScopeException">
     /// A synchronous scope is open, so the block could continue on another thread; or tracked state was written by a
-    /// parallel branch of the block or through the scope after it closed.
+    /// parallel branch of the block or through the scope after it closed; or the ambient
+    /// transaction the scope joined was aborted before the commit.
     /// </exception>
     /// <exception cref="InvalidOperationException"><paramref name="func"/> returned <see langword="null"/> instead of a task.</exception>
     /// <exception cref="RewindCompensationException">The block failed and a compensation or a rollback effect also threw.</exception>
@@ -249,7 +250,8 @@ public static class Rewind
     /// <exception cref="ArgumentNullException"><paramref name="func"/> is <see langword="null"/>.</exception>
     /// <exception cref="RewindScopeException">
     /// A synchronous scope is open, so the block could continue on another thread; or tracked state was written by a
-    /// parallel branch of the block or through the scope after it closed.
+    /// parallel branch of the block or through the scope after it closed; or the ambient
+    /// transaction the scope joined was aborted before the commit.
     /// </exception>
     /// <exception cref="InvalidOperationException"><paramref name="func"/> returned <see langword="null"/> instead of a task.</exception>
     /// <exception cref="RewindCompensationException">The block failed and a compensation or a rollback effect also threw.</exception>
@@ -275,7 +277,8 @@ public static class Rewind
     /// <exception cref="ArgumentNullException"><paramref name="func"/> is <see langword="null"/>.</exception>
     /// <exception cref="RewindScopeException">
     /// A synchronous scope is open, so the block could continue on another thread; or tracked state was written by a
-    /// parallel branch of the block or through the scope after it closed.
+    /// parallel branch of the block or through the scope after it closed; or the ambient
+    /// transaction the scope joined was aborted before the commit.
     /// </exception>
     /// <exception cref="InvalidOperationException"><paramref name="func"/> returned <see langword="null"/> instead of a task.</exception>
     /// <exception cref="RewindCompensationException">The block failed and a compensation or a rollback effect also threw.</exception>
@@ -302,7 +305,8 @@ public static class Rewind
     /// <exception cref="ArgumentNullException"><paramref name="func"/> is <see langword="null"/>.</exception>
     /// <exception cref="RewindScopeException">
     /// A synchronous scope is open, so the block could continue on another thread; or tracked state was written by a
-    /// parallel branch of the block or through the scope after it closed.
+    /// parallel branch of the block or through the scope after it closed; or the ambient
+    /// transaction the scope joined was aborted before the commit.
     /// </exception>
     /// <exception cref="InvalidOperationException"><paramref name="func"/> returned <see langword="null"/> instead of a task.</exception>
     /// <exception cref="RewindCompensationException">The block failed and a compensation or a rollback effect also threw.</exception>

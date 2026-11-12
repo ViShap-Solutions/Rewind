@@ -137,7 +137,8 @@ Key mechanics:
   `OnCommitted` observers with the `ChangeSet` (built only when one is registered), then `AfterCommit` effects.
 - **Ambient transactions.** An outermost scope opened in an active `Transaction.Current` joins it: its commit is
   pending in the transaction's single `TransactionParticipant` (volatile enlistment) until the outcome; its rollback
-  rolls the transaction back. `Engine/Completion` runs the end of a commit or rollback for both paths.
+  rolls the transaction back. The participant only answers `Done` to the notifications and completes the pending
+  scopes in `TransactionCompleted`, throwing their failures only on the thread where the first scope joined (D-49). `Engine/Completion` runs the end of a commit or rollback for both paths.
 - **History replays entries through the recording paths.** `RewindHistory.Undo` undoes a step's entries inside a new
   scope that records them, so that scope's change set is the redo step.
 - **Diagnostics.** `Engine/Telemetry` holds the `Meter`, its five instruments and the `ActivitySource`; each report
