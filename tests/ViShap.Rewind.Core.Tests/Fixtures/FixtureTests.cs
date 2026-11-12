@@ -29,6 +29,20 @@ public sealed class FixtureTests
     }
 
     [Fact]
+    public void TempDirectory_Dispose_DeletesDirectoryAndContent()
+    {
+        var directory = new TempDirectory();
+        File.WriteAllText(directory.File("a.txt"), "a");
+        File.WriteAllText(directory.File(".a.txt.0.rewind-bak"), "a");
+
+        Assert.Equal(new[] { ".a.txt.0.rewind-bak", "a.txt" }, directory.Files());
+        Assert.Equal(new[] { ".a.txt.0.rewind-bak" }, directory.SideFiles());
+        directory.Dispose();
+
+        Assert.False(Directory.Exists(directory.Path));
+    }
+
+    [Fact]
     public void Capture_ActionThrows_ReturnsException()
     {
         var thrown = new InvalidOperationException();

@@ -80,7 +80,8 @@ deliberate way to try a change and undo it.
 an HTTP request, sending mail or socket data, starting a process — changes something a rollback cannot undo. If
 the scope then rolls back, the effect has happened for a change that was not kept. Register it instead:
 `scope.AfterCommit(() => …)` runs it only once the change is kept, and `scope.Effect(do, undo)` runs it at once with
-a compensation for a rollback. The code fix moves the call into `AfterCommit` when a scope variable is in reach.
+a compensation for a rollback. For a file, `RewindFile` ([files.md](files.md)) writes, copies or deletes it and puts
+it back on rollback. The code fix moves the call into `AfterCommit` when a scope variable is in reach.
 
 Reading a file is not reported. Code in a block passed to `AfterCommit`, `AfterRollback` or `Effect`, and code in a
 method called from the scope, is not reported.
