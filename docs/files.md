@@ -19,7 +19,6 @@ put back if the scope — or any scope around it — rolls back. Once the outerm
 deleted.
 
 ```csharp
-using System.Text.Json;
 using ViShap.Rewind;
 
 var path = Path.Join(Path.GetTempPath(), $"settings-{Guid.NewGuid():N}.json");
@@ -29,12 +28,12 @@ try
 {
     Rewind.Run(() =>
     {
-        RewindFile.Write(path, stream => JsonSerializer.Serialize(stream, new { Theme = "dark" }));
+        RewindFile.Write(path, stream => stream.Write("""{"Theme":"dark"}"""u8));   // a serializer writes here
         Console.WriteLine(File.ReadAllText(path));   // {"Theme":"dark"}
-        throw new InvalidOperationException("Validation failed");
+        throw new ArgumentException("Validation failed");
     });
 }
-catch (InvalidOperationException)
+catch (ArgumentException)
 {
 }
 

@@ -172,15 +172,19 @@ Scopes close innermost first. Committing or disposing a scope while a child of i
 `RewindScopeException` and changes nothing. If a block passed to `Run` leaves a scope it began open, `Run` rolls
 back everything the block did and throws `RewindScopeException`.
 
-`Rewind.Current` is the innermost open scope of the current thread, or `null`. `RewindScope.Depth` is 0 for an
+`Rewind.Current` is the innermost open scope of the current thread — or of the asynchronous flow running on it, for
+a scope of `Rewind.RunAsync` — or `null`. `RewindScope.Depth` is 0 for an
 outermost scope and one more for each enclosing scope.
 
 ## Threads
 
-A scope belongs to the thread that opened it. Calling `Commit`, `Dispose`, `AfterCommit`, `AfterRollback` or
+A scope opened by `Rewind.Run` or `Rewind.Begin` belongs to the thread that opened it; a scope of `Rewind.RunAsync`
+belongs to the asynchronous flow that opened it, on whatever thread it resumes ([async.md](async.md)). Calling
+`Commit`, `Dispose`, `AfterCommit`, `AfterRollback` or
 `Effect` on an open scope from another thread throws `RewindScopeException` and changes nothing. A scope is
 invisible to other threads: a write from a thread with no open scope is a plain write, and another thread's
-rollback does not undo it. A `RewindCell<T>` is not safe for concurrent writes.
+rollback does not undo it. A `RewindCell<T>` is not safe for concurrent writes. Rewind does not isolate threads from
+each other: state shared between threads needs its own synchronization.
 
 ## Asynchronous code
 

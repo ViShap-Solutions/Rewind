@@ -43,3 +43,5 @@ public partial class Order
 | RWD1006 | Warning | parallel branches are started inside an asynchronous scope |
 
 Each is explained, with its fix, in [the diagnostics documentation](https://github.com/ViShap-Solutions/Rewind/blob/main/docs/diagnostics.md).
+
+More in the [documentation](https://github.com/ViShap-Solutions/Rewind/blob/main/docs/rewindable-types.md).

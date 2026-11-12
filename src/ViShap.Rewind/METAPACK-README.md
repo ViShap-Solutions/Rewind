@@ -7,7 +7,7 @@ This meta-package ships no code of its own. It brings:
 
 | Package | What it holds |
 |---|---|
-| `ViShap.Rewind.Core` | Scopes, tracked cells, effects, exceptions |
+| `ViShap.Rewind.Core` | Scopes, tracked state and collections, effects, change sets and history, transactions, files, asynchronous scopes, diagnostics |
 | `ViShap.Rewind.Generator` | The source generator and analyzers; they run in the compiler only |
 
 For tests, add `ViShap.Rewind.Testing` to the test project.
@@ -37,3 +37,7 @@ public partial class Account
     public partial decimal Balance { get; set; }
 }
 ```
+
+Rewind restores state on the thread that changed it; it does not isolate threads from each other, and it joins only an
+ambient `System.Transactions` transaction. The [documentation](https://github.com/ViShap-Solutions/Rewind/blob/main/docs/README.md) starts with
+[getting started](https://github.com/ViShap-Solutions/Rewind/blob/main/docs/getting-started.md).

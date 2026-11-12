@@ -4,6 +4,7 @@
     <IsPackable>true</IsPackable>
     <PackageId>ViShap.Rewind</PackageId>
     <Description>Atomic in-memory state change for .NET: a block of code either keeps all its changes or none, with effects bound to commit and rollback. Brings ViShap.Rewind.Core and its source generator.</Description>
+    <PackageTags>$(PackageTags);source-generator</PackageTags>
     <PackageReadmeFile>METAPACK-README.md</PackageReadmeFile>
     <IncludeBuildOutput>false</IncludeBuildOutput>
     <IncludeSymbols>false</IncludeSymbols>

@@ -61,9 +61,22 @@ single value outside a class there is `RewindCell<T>`, and `RewindList<T>`, `Rew
 
 Targets .NET 10.
 
+## What it does not do
+
+- **No isolation between threads.** A scope restores what its own thread changed; other threads see changes as they
+  are made. State shared between requests — a singleton, a static cache — is not protected by Rewind.
+- **No durability.** State lives in memory; a database is the durable store.
+- **Only an ambient `System.Transactions` transaction is joined.** A `TransactionScope` around database work commits
+  and rolls back together with the scope; a transaction opened with `DbContext.Database.BeginTransaction()`, or the
+  one `SaveChanges` opens on its own, is not seen.
+
 ## Documentation
 
-`docs/` holds the consumer documentation, one page per subject.
+Start with [getting started](docs/getting-started.md). One page per subject: [scopes](docs/scopes.md),
+[effects](docs/effects.md), [exceptions](docs/exceptions.md), [rewindable types](docs/rewindable-types.md),
+[collections](docs/collections.md), [changes and history](docs/changes-and-history.md),
+[transactions](docs/transactions.md), [files](docs/files.md), [asynchronous scopes](docs/async.md),
+[observability](docs/observability.md), [testing](docs/testing.md), [diagnostics](docs/diagnostics.md).
 
 ## License
 
