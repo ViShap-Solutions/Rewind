@@ -17,7 +17,7 @@
     <PackageProjectUrl>https://github.com/ViShap-Solutions/Rewind</PackageProjectUrl>
     <RepositoryUrl>https://github.com/ViShap-Solutions/Rewind</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
-    <PackageTags>rollback;undo;transaction;unit-of-work;atomic;state;compensation;saga</PackageTags>
+    <PackageTags>rollback;undo;transaction;unit-of-work;atomic;state;compensation</PackageTags>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>

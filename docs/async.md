@@ -110,10 +110,11 @@ must not write the same tracked state.
 
 ## Effects
 
-`AfterCommit`, `AfterRollback` and `Effect` take synchronous actions. An `async` lambda passed to one of them would
-become `async void` — nothing waits for it and its exception is lost — and analyzer RWD1003 reports it as an error.
-Asynchronous work that must follow the commit is done after `await Rewind.RunAsync(…)` returns, or handed from a
-synchronous effect to a queue that runs it.
+`AfterCommit`, `AfterRollback` and `Effect` take synchronous actions in this version, also in an asynchronous scope.
+An `async` lambda passed to one of them would become `async void` — nothing waits for it and its exception is lost —
+and analyzer RWD1003 reports it as an error. Asynchronous work that must follow the commit is done after
+`await Rewind.RunAsync(…)` returns, or handed from a synchronous effect to a queue that runs it
+([effects.md](effects.md#asynchronous-work)).
 
 ## Transactions
 

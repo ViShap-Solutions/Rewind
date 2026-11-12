@@ -31,3 +31,5 @@ Console.WriteLine("Purchase is atomic");                               // Purcha
 
 `RewindVerify.Rollback` checks rollback at every failure point, `RewindVerify.Retries` that retried code behaves the
 same on every attempt; `RollbackAsync` and `RetriesAsync` do the same for asynchronous operations.
+
+More in the [documentation](https://github.com/ViShap-Solutions/Rewind/blob/main/docs/testing.md).

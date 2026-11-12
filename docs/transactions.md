@@ -7,6 +7,17 @@ roll back together, with nothing to configure.
 Rewind does not make anything transactional on its own account: the database's work stays the database's, and
 Rewind only follows the transaction it finds.
 
+## Which transactions are joined
+
+Only an ambient `System.Transactions` transaction: `Transaction.Current`, as a `TransactionScope` sets it. Entity
+Framework Core and ADO.NET providers that support ambient transactions enlist the database connection in it, so the
+database work and the scope commit and roll back together.
+
+A transaction the database opens on its own is not seen: one opened with `DbContext.Database.BeginTransaction()` or
+`DbConnection.BeginTransaction()`, and the one `SaveChanges` opens when there is no ambient transaction. Rewind has no
+way to learn its outcome; this version has no integration for them. Wrap the work in a `TransactionScope` instead —
+with `TransactionScopeAsyncFlowOption.Enabled` when the code awaits ([async.md](async.md)).
+
 ## How a scope follows the transaction
 
 An outermost scope opened while `Transaction.Current` is an active transaction joins it:

@@ -9,7 +9,7 @@ A rollback never hides the exception that caused it: it reaches the caller eithe
 | The block's own exception | The block passed to `Run` threw, and every compensation and rollback reaction succeeded | Rolled back |
 | `RewindCompensationException` | A rollback ran and one or more compensations (`undo`) or rollback reactions (`AfterRollback`) threw | Tracked state rolled back; the external results of the failed compensations are unknown |
 | `RewindEffectException` | The outermost scope committed and one or more `AfterCommit` effects threw | Committed |
-| `RewindScopeException` | A scope rule was broken: another thread, a closed scope, out of nesting order, an awaitable block, a scope left open by `Run`'s block | Nothing changed, or rolled back when `Run`'s block left a scope open |
+| `RewindScopeException` | A scope rule was broken: another thread, a closed scope, out of nesting order, an awaitable block, a scope left open by `Run`'s block; for `RunAsync`, a synchronous scope open around it, or a parallel branch or a late write into its scope | Nothing changed, or rolled back when `Run`'s block left a scope open; for `RunAsync`, its scope rolls back |
 | `ArgumentNullException` | A `null` block, action or operation | Nothing changed |
 
 ## The block's own exception

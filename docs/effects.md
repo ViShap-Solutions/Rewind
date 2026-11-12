@@ -135,3 +135,11 @@ Rewind.Run(outer =>
 
 `undo`, `AfterRollback` and `AfterCommit` run with no current scope: `Rewind.Current` is `null`, and a write to
 tracked state there is a plain write that nothing records.
+
+## Asynchronous work
+
+The effects of this version are synchronous: `AfterCommit`, `AfterRollback` and `Effect` take an `Action`. An `async`
+lambda passed to them would become `async void` — nothing would wait for it and its exception would be lost — so
+analyzer RWD1003 reports it as an error ([diagnostics.md](diagnostics.md#rwd1003)). Do asynchronous work that must
+follow the commit after the scope returns — after `Rewind.Run`, or after `await Rewind.RunAsync(…)` — or hand it from
+a synchronous `AfterCommit` to a queue or an outbox that runs it.

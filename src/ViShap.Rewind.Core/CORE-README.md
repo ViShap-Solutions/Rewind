@@ -49,3 +49,11 @@ An asynchronous block runs in `Rewind.RunAsync`, whose scope follows it through 
 What the library tracks is state it can restore: `RewindCell<T>`, the collections `RewindList<T>`,
 `RewindDictionary<TKey, TValue>` and `RewindSet<T>`, and the members built on them. A plain field keeps whatever
 value the block left in it.
+
+Besides scopes and cells, Core holds the tracked collections, change sets and undo/redo history, `PropertyChanged`
+raised after the commit, participation in an ambient `System.Transactions` transaction, `RewindFile`, asynchronous
+scopes, and metrics and traces under `RewindDiagnostics`.
+
+Rewind restores state on the thread that changed it; it does not isolate threads from each other, and it joins only an
+ambient `System.Transactions` transaction. The [documentation](https://github.com/ViShap-Solutions/Rewind/blob/main/docs/README.md) starts with
+[getting started](https://github.com/ViShap-Solutions/Rewind/blob/main/docs/getting-started.md).
