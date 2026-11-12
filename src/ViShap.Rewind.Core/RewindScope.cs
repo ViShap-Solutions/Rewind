@@ -31,7 +31,7 @@ public sealed class RewindScope : IDisposable
     private RewindScope(RewindScope? parent, bool managed, bool isAsync)
     {
         _parent = parent;
-        _journal = parent?._journal ?? (isAsync ? new GuardedJournal() : new Journal());
+        _journal = parent?._journal ?? NewJournal(isAsync);
         _mark = _journal.Count;
         _threadId = Environment.CurrentManagedThreadId;
         _managed = managed;
@@ -95,7 +95,9 @@ public sealed class RewindScope : IDisposable
     {
         ArgumentNullException.ThrowIfNull(action);
         EnsureInnermost();
-        (_afterCommit ??= []).Add(action);
+        var injector = _journal.Injector;
+        (_afterCommit ??= []).Add(injector is null ? action : injector.Deferred(action));
+        injector?.AfterRegistration(nameof(AfterCommit));
     }
 
     /// <summary>Registers <paramref name="action"/> to run after this scope, or a scope enclosing it, has rolled back.</summary>
@@ -107,6 +109,7 @@ public sealed class RewindScope : IDisposable
         ArgumentNullException.ThrowIfNull(action);
         EnsureInnermost();
         (_afterRollback ??= []).Add(action);
+        _journal.Injector?.AfterRegistration(nameof(AfterRollback));
     }
 
     /// <summary>
@@ -125,7 +128,9 @@ public sealed class RewindScope : IDisposable
     {
         ArgumentNullException.ThrowIfNull(action);
         EnsureInnermost();
-        (_onCommitted ??= []).Add(action);
+        var injector = _journal.Injector;
+        (_onCommitted ??= []).Add(injector is null ? action : injector.Deferred(action));
+        injector?.AfterRegistration(nameof(OnCommitted));
     }
 
     /// <summary>
@@ -190,6 +195,18 @@ public sealed class RewindScope : IDisposable
     }
 
     internal static RewindScope Open(bool managed) => Open(managed, isAsync: false);
+
+    /// <summary>Creates the journal of an outermost scope: guarded for an asynchronous one, injecting in an armed flow.</summary>
+    private static Journal NewJournal(bool isAsync)
+    {
+        var injector = FaultInjection.Current;
+        if (isAsync)
+        {
+            return new GuardedJournal(injector);
+        }
+
+        return injector is null ? new Journal() : new InjectingJournal(injector);
+    }
 
     /// <summary>Opens a managed asynchronous scope; refused while a synchronous scope is the current one.</summary>
     internal static RewindScope OpenAsync()

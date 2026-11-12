@@ -18,6 +18,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\ViShap.Rewind.Core\ViShap.Rewind.Core.csproj" />
+    <ProjectReference Include="..\..\src\ViShap.Rewind.Testing\ViShap.Rewind.Testing.csproj" />
     <ProjectReference Include="..\..\src\ViShap.Rewind.Generator\ViShap.Rewind.Generator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="true" />
   </ItemGroup>
 

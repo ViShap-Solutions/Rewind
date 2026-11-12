@@ -70,13 +70,14 @@ Every file under `internal/` states its class at its head (`internal/README.md`)
 - `internal/performance/` — *plan.* Optimization proposals from measurements, for the owner to decide.
 - `internal/Development-Workflow.md` — *operational* (Russian). Never edited by an agent unless the owner asks.
 
-Current state: **B0–B8 closed, `v1.0.0-alpha.1` published; B9 gate holds — awaiting commit.** Core holds the engine
+Current state: **B0–B9 closed, `v1.0.0-alpha.1` published; B10 gate holds — awaiting commit.** Core holds the engine
 of contract §4–§7, the collections of §8, `ChangeSet`/notifications/`RewindHistory` of §10, joins an ambient
 `System.Transactions` transaction (§11), binds file operations to scopes with `RewindFile` (§12), and runs
 asynchronous blocks with `Rewind.RunAsync` (§13); the attributes and the seam `ViShap.Rewind.Contracts`. The generator
 implements `[Rewindable]` partial properties and their notifications; analyzers report RWD0001–RWD0006 and
-RWD1001–RWD1006. Every QA checkpoint of B1–B9 has its test and INV-01…INV-13 are pinned. CI builds and tests on Linux
-and Windows. The Testing project has no code yet. Next: B10 (Testing package).
+RWD1001–RWD1006. The Testing package holds `RewindVerify` (§14), reaching Core through an internal fault-injection
+hook. Every QA checkpoint of B1–B10 has its test and INV-01…INV-13 are pinned. CI builds and tests on Linux and
+Windows. Next: B11 (observability); after it, `v1.0.0-beta.1`.
 
 ## Projects
 
@@ -91,8 +92,8 @@ and Windows. The Testing project has no code yet. Next: B10 (Testing package).
   `tests/ViShap.Rewind.Generator.Tests/Snapshots/`, reviewed, never refreshed to make a test pass.
 - `ViShap.Rewind.Generator.CodeFixes` — the code fixes, `netstandard2.0`, the only assembly referencing Roslyn
   Workspaces; not packable itself, packed into the generator package's `analyzers/dotnet/cs`.
-- `ViShap.Rewind.Testing` — tools for the consumer's tests (contract §14). Depends on Core; not in the
-  meta-package; packed by CD from B10.
+- `ViShap.Rewind.Testing` — `RewindVerify` for the consumer's tests (contract §14). Depends on Core; not in the
+  meta-package; packed and published by CD. Tested in `Core.Tests/Verify/`, which references it.
 - `ViShap.Rewind` — meta-package: references Core and Generator, ships no code.
 - `tests/ViShap.Rewind.AotConsumer` — a console program over Core and the generator, run by the Native AOT job of CI.
 
@@ -137,6 +138,10 @@ Key mechanics:
   rolls the transaction back. `Engine/Completion` runs the end of a commit or rollback for both paths.
 - **History replays entries through the recording paths.** `RewindHistory.Undo` undoes a step's entries inside a new
   scope that records them, so that scope's change set is the redo step.
+- **Fault injection (Testing).** `RewindVerify` arms its flow (`FaultInjection`, an `AsyncLocal` read only while a
+  static counter says something is armed); an outermost scope opened in an armed flow gets an `InjectingJournal` (or a
+  `GuardedJournal` with the injector) that calls `IFaultInjector` after every recording and effect registration, and
+  wraps `AfterCommit`/`OnCommitted` to see whether they run. The operation's own scopes commit for real.
 - **Files are effects.** `RewindFile` writes new content to a side file and renames it over the target at the call;
   in a scope the previous file is kept as `.rewind-bak`, a `CompensationEntry` puts it back on rollback and an
   `AfterCommit` effect deletes it. With no scope the operation is a plain atomic rename. It is the only I/O in Core.
