@@ -57,6 +57,9 @@ public sealed class PublicSurfaceTests
             {
                 switch (member)
                 {
+                    case FieldInfo field:
+                        Check(DocumentationIds.Of(field), [], [], returns: false);
+                        break;
                     case PropertyInfo property:
                         Check(DocumentationIds.Of(property), property.GetIndexParameters(), [], returns: false);
                         break;
@@ -115,6 +118,11 @@ public sealed class PublicSurfaceTests
         foreach (var constructor in type.GetConstructors(declared).Where(Visible))
         {
             yield return constructor;
+        }
+
+        foreach (var field in type.GetFields(declared).Where(field => !field.IsSpecialName && (field.IsPublic || field.IsFamily || field.IsFamilyOrAssembly)))
+        {
+            yield return field;
         }
 
         foreach (var property in type.GetProperties(declared).Where(property => property.GetAccessors(true).Any(Visible)))

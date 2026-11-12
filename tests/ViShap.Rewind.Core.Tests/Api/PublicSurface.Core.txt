@@ -124,6 +124,9 @@ sealed class Change
     string? Member { get; }
     object? OldValue { get; }
     object? NewValue { get; }
+static class RewindDiagnostics
+    const string MeterName
+    const string ActivitySourceName
 sealed class RewindHistory
     RewindHistory()
     bool CanUndo { get; }

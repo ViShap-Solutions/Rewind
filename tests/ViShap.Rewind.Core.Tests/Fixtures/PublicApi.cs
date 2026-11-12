@@ -117,6 +117,26 @@ public static class PublicApi
             yield return $"{Modifiers(constructor, implicitStatic)}{ShortName(type)}({Parameters(constructor, context)})";
         }
 
+        foreach (var field in type.GetFields(Declared).Where(field => !field.IsSpecialName && (field.IsPublic || field.IsFamily || field.IsFamilyOrAssembly)).OrderBy(field => field.MetadataToken))
+        {
+            var modifiers = new StringBuilder();
+            if (field.IsFamily || field.IsFamilyOrAssembly)
+            {
+                modifiers.Append("protected ");
+            }
+
+            if (field.IsLiteral)
+            {
+                modifiers.Append("const ");
+            }
+            else
+            {
+                modifiers.Append(field.IsStatic && !implicitStatic ? "static " : string.Empty).Append(field.IsInitOnly ? "readonly " : string.Empty);
+            }
+
+            yield return $"{modifiers}{TypeName(field.FieldType, context.Create(field))} {field.Name}";
+        }
+
         foreach (var property in type.GetProperties(Declared).Where(property => property.GetAccessors(true).Any(IsVisible)))
         {
             var accessors = new StringBuilder("{");

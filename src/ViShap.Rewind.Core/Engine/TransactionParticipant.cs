@@ -79,7 +79,10 @@ internal sealed class TransactionParticipant : IEnlistmentNotification
         List<Exception>? failures = null;
         foreach (var scope in Take())
         {
-            Completion.Append(ref failures, Completion.Commit(scope.Journal, scope.Observers, scope.AfterCommit));
+            var entries = scope.Journal.Count;
+            var completion = Completion.Commit(scope.Journal, scope.Observers, scope.AfterCommit);
+            Telemetry.TransactionClosed(scope.Journal is GuardedJournal, Outcome.Committed, entries, completion?.Count ?? 0);
+            Completion.Append(ref failures, completion);
         }
 
         return failures;
@@ -92,7 +95,11 @@ internal sealed class TransactionParticipant : IEnlistmentNotification
         var scopes = Take();
         for (var index = scopes.Length - 1; index >= 0; index--)
         {
-            Completion.Append(ref failures, Completion.Rollback(scopes[index].Journal, scopes[index].AfterRollback));
+            var journal = scopes[index].Journal;
+            var entries = journal.Count;
+            var completion = Completion.Rollback(journal, scopes[index].AfterRollback);
+            Telemetry.TransactionClosed(journal is GuardedJournal, Outcome.RolledBack, entries, completion?.Count ?? 0);
+            Completion.Append(ref failures, completion);
         }
 
         return failures;
@@ -104,7 +111,10 @@ internal sealed class TransactionParticipant : IEnlistmentNotification
         List<Exception>? failures = null;
         foreach (var scope in Take())
         {
-            Completion.Append(ref failures, Completion.Commit(scope.Journal, scope.Observers, afterCommit: null));
+            var entries = scope.Journal.Count;
+            var completion = Completion.Commit(scope.Journal, scope.Observers, afterCommit: null);
+            Telemetry.TransactionClosed(scope.Journal is GuardedJournal, Outcome.InDoubt, entries, completion?.Count ?? 0);
+            Completion.Append(ref failures, completion);
         }
 
         return failures;

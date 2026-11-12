@@ -45,6 +45,9 @@ public sealed class ApiFixtureTests
             {
                 "Sample(string? name, ref int count)",
                 "protected Sample()",
+                "const string Name",
+                "static readonly string? Fallback",
+                "protected int Seed",
                 "static int? Count { get; }",
                 "IReadOnlyList<string?> Names { get; set; }",
                 "TResult Map<TResult>(Func<T, TResult> map, params int[] values) where TResult : class, IDisposable",
@@ -67,6 +70,7 @@ public sealed class ApiFixtureTests
         Assert.Equal("M:ViShap.Rewind.Rewind.Run``1(``0)", DocumentationIds.Of(run));
         Assert.Equal("M:ViShap.Rewind.RewindScope.Effect(System.Action,System.Action)", DocumentationIds.Of(effect));
         Assert.Equal("P:ViShap.Rewind.RewindCell`1.Value", DocumentationIds.Of(value));
+        Assert.Equal("F:ViShap.Rewind.RewindDiagnostics.MeterName", DocumentationIds.Of(typeof(RewindDiagnostics).GetField(nameof(RewindDiagnostics.MeterName))!));
         Assert.Equal(
             "M:ViShap.Rewind.RewindCompensationException.#ctor(System.Exception,System.Collections.Generic.IReadOnlyList{System.Exception})",
             DocumentationIds.Of(constructor));
@@ -146,6 +150,12 @@ public sealed class ApiFixtureTests
         {
             Names = [];
         }
+
+        public const string Name = "sample";
+
+        public static readonly string? Fallback = null;
+
+        protected int Seed;
 
         public static int? Count => null;
 
