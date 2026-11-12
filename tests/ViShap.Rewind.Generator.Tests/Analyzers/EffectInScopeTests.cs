@@ -42,6 +42,30 @@ public sealed class EffectInScopeTests
     }
 
     [Fact]
+    public void RWD1002_InsideRunAsync_ReportedButNotInItsEffects()
+    {
+        var diagnostics = AnalyzerHarness.Diagnostics(new EffectInScopeAnalyzer(), """
+            using System.IO;
+            using System.Net.Http;
+            using System.Threading.Tasks;
+            using ViShap.Rewind;
+
+            public static class Shop
+            {
+                public static Task Run(HttpClient http) => Rewind.RunAsync(async scope =>
+                {
+                    await File.WriteAllTextAsync("a.txt", "x");
+                    await http.PostAsync("https://example.org", null);
+                    scope.AfterCommit(() => File.Delete("b.txt"));
+                });
+            }
+            """);
+
+        Assert.Equal(2, diagnostics.Length);
+        Assert.All(diagnostics, d => Assert.Equal("RWD1002", d.Id));
+    }
+
+    [Fact]
     public void RWD1002_InsideBeginRegions_Reported()
     {
         var diagnostics = AnalyzerHarness.Diagnostics(new EffectInScopeAnalyzer(), """
@@ -188,6 +212,23 @@ public sealed class EffectInScopeTests
             public static class Shop
             {
                 public static void Run() => Rewind.Run(() => File.Delete("draft.txt"));
+            }
+            """);
+
+        Assert.Null(fixedSource);
+    }
+
+    [Fact]
+    public void RWD1002_Fix_NotOfferedForAwaitedCall()
+    {
+        var fixedSource = AnalyzerHarness.Fix(new EffectInScopeAnalyzer(), new WrapInAfterCommitCodeFix(), """
+            using System.IO;
+            using System.Threading.Tasks;
+            using ViShap.Rewind;
+
+            public static class Shop
+            {
+                public static Task Run() => Rewind.RunAsync(async scope => await File.WriteAllTextAsync("draft.txt", "x"));
             }
             """);
 

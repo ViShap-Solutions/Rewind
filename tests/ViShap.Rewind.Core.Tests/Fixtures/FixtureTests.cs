@@ -43,6 +43,16 @@ public sealed class FixtureTests
     }
 
     [Fact]
+    public async Task Resume_ContinuesOnAnotherThread()
+    {
+        var before = Environment.CurrentManagedThreadId;
+
+        await OtherThread.Resume();
+
+        Assert.NotEqual(before, Environment.CurrentManagedThreadId);
+    }
+
+    [Fact]
     public void Capture_ActionThrows_ReturnsException()
     {
         var thrown = new InvalidOperationException();

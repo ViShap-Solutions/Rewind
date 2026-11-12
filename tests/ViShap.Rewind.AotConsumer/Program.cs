@@ -164,6 +164,30 @@ Rewind.Run(() =>
 Report("File committed", $"{File.ReadAllText(settings)} {files.GetFiles().Length}");
 files.Delete(recursive: true);
 
+var flowing = new RewindCell<int>(0);
+try
+{
+    await Rewind.RunAsync(async () =>
+    {
+        flowing.Value = 1;
+        await Task.Yield();
+        flowing.Value = 2;
+        throw new InvalidOperationException("declined");
+    });
+}
+catch (InvalidOperationException)
+{
+}
+
+Report("Async rolled back", flowing.Value);
+var flowed = await Rewind.RunAsync(async scope =>
+{
+    flowing.Value = 3;
+    await Task.Yield();
+    return Rewind.Current == scope ? flowing.Value : -1;
+});
+Report("Async committed", $"{flowed} {flowing.Value}");
+
 Report("Effects", string.Join(", ", log));
 Report("Current after all", Rewind.Current is null ? "none" : "open");
 

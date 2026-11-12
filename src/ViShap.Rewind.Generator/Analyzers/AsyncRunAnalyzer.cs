@@ -5,7 +5,10 @@ using Microsoft.CodeAnalysis.Operations;
 
 namespace ViShap.Rewind.Generator.Analyzers;
 
-/// <summary>RWD1003: an <c>async</c> lambda, anonymous method or method passed to <c>Rewind.Run</c>.</summary>
+/// <summary>
+/// RWD1003: an <c>async</c> lambda, anonymous method or method passed to <c>Rewind.Run</c>, or to <c>AfterCommit</c>,
+/// <c>AfterRollback</c> or <c>Effect</c>, which run their block synchronously.
+/// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class AsyncRunAnalyzer : DiagnosticAnalyzer
 {
@@ -28,10 +31,22 @@ public sealed class AsyncRunAnalyzer : DiagnosticAnalyzer
                 operationContext =>
                 {
                     var invocation = (IInvocationOperation)operationContext.Operation;
-                    if (!symbols.IsRun(invocation.TargetMethod))
+                    var target = invocation.TargetMethod;
+                    string consequence;
+                    if (symbols.IsRun(target))
+                    {
+                        consequence = "an asynchronous block keeps running after the scope has closed, and its writes after the first await are not tracked; use Rewind.RunAsync";
+                    }
+                    else if (symbols.IsEffectRegistration(target))
+                    {
+                        consequence = "an asynchronous block becomes async void: the scope does not wait for it and its exception is not reported";
+                    }
+                    else
                     {
                         return;
                     }
+
+                    var name = target.ContainingType.Name + "." + target.Name;
 
                     foreach (var argument in invocation.Arguments)
                     {
@@ -50,7 +65,7 @@ public sealed class AsyncRunAnalyzer : DiagnosticAnalyzer
 
                         if (asynchronous)
                         {
-                            operationContext.ReportDiagnostic(Diagnostic.Create(Descriptors.AsyncRun, argument.Value.Syntax.GetLocation()));
+                            operationContext.ReportDiagnostic(Diagnostic.Create(Descriptors.AsyncRun, argument.Value.Syntax.GetLocation(), name, consequence));
                         }
                     }
                 },

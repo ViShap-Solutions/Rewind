@@ -13,6 +13,7 @@ RWD0005 | ViShap.Rewind | Error | Partial property cannot be tracked: static, in
 RWD0006 | ViShap.Rewind | Warning | A type implementing INotifyPropertyChanged has nothing generated code can call to raise it
 RWD1001 | ViShap.Rewind | Warning | Scope returned by Rewind.Begin() is never disposed
 RWD1002 | ViShap.Rewind | Warning | External effect called directly inside a scope
-RWD1003 | ViShap.Rewind | Error | Asynchronous block passed to Rewind.Run
+RWD1003 | ViShap.Rewind | Error | Asynchronous block passed to Rewind.Run, AfterCommit, AfterRollback or Effect
 RWD1004 | ViShap.Rewind | Warning | RewindCell<T> of a mutable reference type
 RWD1005 | ViShap.Rewind | Warning | Untracked field written inside a scope
+RWD1006 | ViShap.Rewind | Warning | Parallel branches inside an asynchronous scope

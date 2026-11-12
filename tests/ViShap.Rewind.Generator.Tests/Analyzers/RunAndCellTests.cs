@@ -67,6 +67,72 @@ public sealed class RunAndCellTests
     }
 
     [Fact]
+    public void RWD1003_AsynchronousEffects_Reported()
+    {
+        const string source = """
+            using System;
+            using System.Threading.Tasks;
+            using ViShap.Rewind;
+
+            public static class Shop
+            {
+                public static Task Run() => Rewind.RunAsync(async scope =>
+                {
+                    await Task.Yield();
+                    scope.AfterCommit(async () => await Task.Yield());
+                    scope.AfterRollback(LaterAsync);
+                    scope.Effect(async () => await Task.Yield(), () => { });
+                    scope.Effect(() => { }, async delegate () { await Task.Yield(); });
+                });
+
+                private static async void LaterAsync() => await Task.Yield();
+            }
+            """;
+
+        var diagnostics = AnalyzerHarness.Diagnostics(new AsyncRunAnalyzer(), source);
+
+        Assert.DoesNotContain(GeneratorHarness.Run(source).CompilationProblems, problem => problem.Severity == DiagnosticSeverity.Error);
+        Assert.Equal(4, diagnostics.Length);
+        Assert.All(diagnostics, d =>
+        {
+            Assert.Equal("RWD1003", d.Id);
+            Assert.Equal(DiagnosticSeverity.Error, d.Severity);
+            Assert.Contains("async void", d.GetMessage(System.Globalization.CultureInfo.InvariantCulture));
+        });
+        Assert.Equal("LaterAsync", AnalyzerHarness.Texts(diagnostics)[1]);
+    }
+
+    [Fact]
+    public void RWD1003_SynchronousEffectsAndRunAsync_NotReported()
+    {
+        var diagnostics = AnalyzerHarness.Diagnostics(new AsyncRunAnalyzer(), """
+            using System.Threading.Tasks;
+            using ViShap.Rewind;
+
+            public static class Shop
+            {
+                public static async Task Run(RewindCell<int> cell)
+                {
+                    await Rewind.RunAsync(async () => await Task.Yield());
+                    await Rewind.RunAsync(async scope =>
+                    {
+                        await Task.Yield();
+                        scope.AfterCommit(() => cell.Value = 1);
+                        scope.Effect(() => { }, Undo);
+                    });
+                    _ = await Rewind.RunAsync(async () => { await Task.Yield(); return 1; });
+                }
+
+                private static void Undo()
+                {
+                }
+            }
+            """);
+
+        Assert.Empty(diagnostics);
+    }
+
+    [Fact]
     public void RWD1004_MutableReferenceCell_ReportedAtCreation()
     {
         var diagnostics = AnalyzerHarness.Diagnostics(new MutableCellAnalyzer(), """

@@ -200,4 +200,5 @@ catch (RewindScopeException)
 }
 ```
 
-Run the synchronous part of the work in the scope.
+For an asynchronous block use `Rewind.RunAsync`, whose scope follows the block through every `await`
+([async.md](async.md)), or run the synchronous part of the work in the scope.

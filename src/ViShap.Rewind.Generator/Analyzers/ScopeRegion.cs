@@ -29,7 +29,7 @@ internal sealed record ScopeRegion(string? ScopeName)
                         return null;
                     }
 
-                    if (symbols.IsRun(invoked))
+                    if (symbols.IsRun(invoked) || symbols.IsRunAsync(invoked))
                     {
                         return new ScopeRegion(ScopeParameter(function, model, symbols, cancellationToken));
                     }
@@ -95,7 +95,8 @@ internal sealed record ScopeRegion(string? ScopeName)
         return found;
     }
 
-    private static IMethodSymbol? Invoked(AnonymousFunctionExpressionSyntax function, SemanticModel model, CancellationToken cancellationToken) =>
+    /// <summary>Returns the method a lambda or anonymous method is passed to as an argument, or <see langword="null"/>.</summary>
+    internal static IMethodSymbol? Invoked(AnonymousFunctionExpressionSyntax function, SemanticModel model, CancellationToken cancellationToken) =>
         function.Parent is ArgumentSyntax { Parent: ArgumentListSyntax { Parent: InvocationExpressionSyntax invocation } }
             ? model.GetSymbolInfo(invocation, cancellationToken).Symbol as IMethodSymbol
             : null;

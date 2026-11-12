@@ -70,13 +70,13 @@ Every file under `internal/` states its class at its head (`internal/README.md`)
 - `internal/performance/` — *plan.* Optimization proposals from measurements, for the owner to decide.
 - `internal/Development-Workflow.md` — *operational* (Russian). Never edited by an agent unless the owner asks.
 
-Current state: **B0–B7 closed, `v1.0.0-alpha.1` published; B8 gate holds — awaiting commit.** Core holds the engine
+Current state: **B0–B8 closed, `v1.0.0-alpha.1` published; B9 gate holds — awaiting commit.** Core holds the engine
 of contract §4–§7, the collections of §8, `ChangeSet`/notifications/`RewindHistory` of §10, joins an ambient
-`System.Transactions` transaction (§11), and binds file operations to scopes with `RewindFile` (§12); the attributes
-and the seam `ViShap.Rewind.Contracts`. The generator implements `[Rewindable]` partial properties and their
-notifications; analyzers report RWD0001–RWD0006 and RWD1001–RWD1005. Every QA checkpoint of B1–B8 has its test and
-INV-01…INV-13 are pinned. CI builds and tests on Linux and Windows. The Testing project has no code yet. Next: B9
-(asynchronous scopes; owner question Q-06 first).
+`System.Transactions` transaction (§11), binds file operations to scopes with `RewindFile` (§12), and runs
+asynchronous blocks with `Rewind.RunAsync` (§13); the attributes and the seam `ViShap.Rewind.Contracts`. The generator
+implements `[Rewindable]` partial properties and their notifications; analyzers report RWD0001–RWD0006 and
+RWD1001–RWD1006. Every QA checkpoint of B1–B9 has its test and INV-01…INV-13 are pinned. CI builds and tests on Linux
+and Windows. The Testing project has no code yet. Next: B10 (Testing package).
 
 ## Projects
 
@@ -110,10 +110,11 @@ repository that resolves fine; generated code must always write `global::ViShap.
 Documented normatively in `internal/System-Contract.md` §2. Layers, top to bottom:
 
 ```text
-Rewind (static)        Run overloads, Begin, Current
-RewindScope            boundary: nesting, commit, rollback, effect registration, thread affinity
+Rewind (static)        Run and RunAsync overloads, Begin, Current
+RewindScope            boundary: nesting, commit, rollback, effect registration, thread or flow affinity
 Tracked state          RewindCell<T>; generated partial properties (B4); RewindList/Dictionary/Set (B3)
-Engine (internal)      ScopeContext: [ThreadStatic] innermost scope + process-wide epoch counter
+Engine (internal)      ScopeContext: [ThreadStatic] innermost scope, mirrored from an AsyncLocal for asynchronous
+                       scopes; process-wide epoch counter
                        Journal: undo log shared by an outermost scope and its children; a child is a mark
                        JournalEntry: CellEntry<T>, PropertyEntry<TOwner, T>, collection entries, CompensationEntry;
                        each undoes itself, undoes itself through the recording paths (history), and describes
@@ -139,8 +140,16 @@ Key mechanics:
 - **Files are effects.** `RewindFile` writes new content to a side file and renames it over the target at the call;
   in a scope the previous file is kept as `.rewind-bak`, a `CompensationEntry` puts it back on rollback and an
   `AfterCommit` effect deletes it. With no scope the operation is a plain atomic rename. It is the only I/O in Core.
-- **No current scope during rollback and effects.** `ScopeContext` is set to `null` while entries are undone and
-  while `AfterCommit`/`AfterRollback` run, so writes there are plain writes.
+- **Asynchronous scopes.** `RunAsync` holds its scope in an `AsyncLocal` whose change callback copies it into the
+  thread-static current scope whenever an execution context takes over a thread; a synchronous scope it displaces is
+  kept on a per-thread stack (`t_displaced`) and restored when its flow returns. Writes, and opening and closing a
+  synchronous scope, touch only the thread-static field.
+  The journal of an asynchronous outermost scope is guarded: it knows its innermost open scope (`Top`) and refuses a
+  recording through any other scope or during another recording; a closed scope's epoch is -1, so a late write
+  records and is refused.
+- **No current scope during rollback and effects.** `ScopeContext.Suspend` clears the current scope (and the flow's,
+  for an asynchronous chain) while entries are undone and while `AfterCommit`/`AfterRollback` run, so writes there
+  are plain writes; `Resume` restores it.
 - **`Run` refuses awaitable results** before running the block (`AwaitableShape<T>`).
 - **Managed scopes.** A scope opened by `Run` refuses `Commit`/`Dispose` from its callback; `Run` closes it, and
   rolls back any scope the callback leaked.

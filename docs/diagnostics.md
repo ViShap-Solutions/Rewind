@@ -14,9 +14,10 @@ silently miss something. An identifier never changes meaning. A warning can be s
 | [RWD0006](#rwd0006) | Warning | a `[Rewindable]` class implements `INotifyPropertyChanged` but has nothing generated code can call to raise it |
 | [RWD1001](#rwd1001) | Warning | the scope returned by `Rewind.Begin()` is never disposed |
 | [RWD1002](#rwd1002) | Warning | a call that changes something outside the process is made directly inside a scope |
-| [RWD1003](#rwd1003) | Error | an asynchronous block is passed to `Rewind.Run` |
+| [RWD1003](#rwd1003) | Error | an asynchronous block is passed to `Rewind.Run`, `AfterCommit`, `AfterRollback` or `Effect`, which run it synchronously |
 | [RWD1004](#rwd1004) | Warning | a `RewindCell<T>` holds a mutable reference type: only the reference is tracked |
 | [RWD1005](#rwd1005) | Warning | a field of a `[Rewindable]` type is written inside a scope, and a rollback does not restore it |
+| [RWD1006](#rwd1006) | Warning | parallel branches are started inside an asynchronous scope |
 
 ## RWD0001
 
@@ -88,9 +89,14 @@ method called from the scope, is not reported.
 
 ## RWD1003
 
-**An asynchronous block is passed to Rewind.Run** (error). `Rewind.Run` runs its block synchronously: an `async`
-block returns at its first `await`, the scope closes, and the rest of the block runs outside it, untracked. A block
-returning a task is also refused at run time. Run the synchronous part of the work in the scope.
+**An asynchronous block is passed to a method that runs it synchronously** (error).
+
+- `Rewind.Run` runs its block synchronously: an `async` block returns at its first `await`, the scope closes, and
+  the rest of the block runs outside it, untracked. A block returning a task is also refused at run time. Use
+  `Rewind.RunAsync` ([async.md](async.md)), or run the synchronous part of the work in the scope.
+- `AfterCommit`, `AfterRollback` and `Effect` take synchronous actions. An `async` lambda passed to them becomes
+  `async void`: the scope does not wait for it, and its exception is not reported — it may end the process. Do the
+  asynchronous work after `await Rewind.RunAsync(…)` returns, or hand it to a queue from a synchronous effect.
 
 ## RWD1004
 
@@ -106,3 +112,12 @@ assigned, incremented or decremented inside a scope. A field is plain storage: a
 tracked properties but leaves the field as the block left it. Turn the field into a `partial` property, or use a
 `RewindCell<T>` for it. Writes in a block passed to `AfterCommit`, `AfterRollback` or `Effect` are not reported.
 
+## RWD1006
+
+**Parallel branches inside an asynchronous scope** (warning). `Task.WhenAll`, `Task.WhenAny`, `Task.Run`,
+`TaskFactory.StartNew` or a `Parallel` method is called inside a block passed to `Rewind.RunAsync`. Every branch
+sees the same scope and would write into its one journal: a write from a branch while another branch has a scope
+open, or at the same moment as another, is refused at run time with `RewindScopeException`, and the scope rolls
+back. Give each branch its own outermost scope — run `Rewind.RunAsync` per branch, outside any scope — or keep the
+branches from writing tracked state. Branches that only read, such as two downloads awaited together, are safe; then
+suppress the warning at that line.

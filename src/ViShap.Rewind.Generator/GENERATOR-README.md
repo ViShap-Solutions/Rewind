@@ -37,8 +37,9 @@ public partial class Order
 | RWD0006 | Warning | a `[Rewindable]` class implements `INotifyPropertyChanged` but has nothing generated code can call to raise it |
 | RWD1001 | Warning | the scope returned by `Rewind.Begin()` is never disposed |
 | RWD1002 | Warning | a call that changes something outside the process is made directly inside a scope |
-| RWD1003 | Error | an asynchronous block is passed to `Rewind.Run` |
+| RWD1003 | Error | an asynchronous block is passed to `Rewind.Run`, `AfterCommit`, `AfterRollback` or `Effect`, which run it synchronously |
 | RWD1004 | Warning | a `RewindCell<T>` holds a mutable reference type: only the reference is tracked |
 | RWD1005 | Warning | a field of a `[Rewindable]` type is written inside a scope, and a rollback does not restore it |
+| RWD1006 | Warning | parallel branches are started inside an asynchronous scope |
 
 Each is explained, with its fix, in [the diagnostics documentation](https://github.com/ViShap-Solutions/Rewind/blob/main/docs/diagnostics.md).
