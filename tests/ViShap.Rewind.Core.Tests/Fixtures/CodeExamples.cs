@@ -145,6 +145,7 @@ public static partial class CodeExamples
             .Where(path => Path.GetFileName(path).StartsWith("System.", StringComparison.Ordinal)
                 || Path.GetFileName(path) is "mscorlib.dll" or "netstandard.dll" or "Microsoft.Win32.Primitives.dll")
             .Append(typeof(Rewind).Assembly.Location)
+            .Append(typeof(Testing.RewindVerify).Assembly.Location)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Select(path => (MetadataReference)MetadataReference.CreateFromFile(path))
             .ToArray();

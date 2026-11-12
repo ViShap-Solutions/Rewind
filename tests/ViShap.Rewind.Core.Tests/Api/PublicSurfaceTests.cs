@@ -6,35 +6,49 @@ namespace ViShap.Rewind.Tests.Api;
 
 public sealed class PublicSurfaceTests
 {
-    private const string ListingPath = "tests/ViShap.Rewind.Core.Tests/Api/PublicSurface.Core.txt";
+    private const string CoreListing = "tests/ViShap.Rewind.Core.Tests/Api/PublicSurface.Core.txt";
+
+    private const string TestingListing = "tests/ViShap.Rewind.Core.Tests/Api/PublicSurface.Testing.txt";
 
     private static readonly Assembly s_core = typeof(Rewind).Assembly;
 
-    [Fact]
-    public void Core_ExportedSurface_EqualsListing()
-    {
-        var expected = Entries(File.ReadAllLines(Repository.PathOf(ListingPath)));
+    private static readonly Assembly s_testing = typeof(Testing.RewindVerify).Assembly;
 
-        var actual = Entries(PublicApi.Render(s_core));
+    [Fact]
+    public void Core_ExportedSurface_EqualsListing() => AssertListed(s_core, CoreListing);
+
+    [Fact]
+    public void Core_EveryExportedMember_IsDocumented() => AssertDocumented(s_core);
+
+    [Fact]
+    public void Testing_ExportedSurface_EqualsListing() => AssertListed(s_testing, TestingListing);
+
+    [Fact]
+    public void Testing_EveryExportedMember_IsDocumented() => AssertDocumented(s_testing);
+
+    private static void AssertListed(Assembly assembly, string listingPath)
+    {
+        var expected = Entries(File.ReadAllLines(Repository.PathOf(listingPath)));
+
+        var actual = Entries(PublicApi.Render(assembly));
 
         var unexpected = actual.Except(expected).ToList();
         var missing = expected.Except(actual).ToList();
         Assert.True(
             unexpected.Count == 0 && missing.Count == 0,
-            $"The exported surface of {s_core.GetName().Name} differs from {ListingPath}."
+            $"The exported surface of {assembly.GetName().Name} differs from {listingPath}."
                 + Section("Exported but not listed", unexpected)
                 + Section("Listed but not exported", missing));
     }
 
-    [Fact]
-    public void Core_EveryExportedMember_IsDocumented()
+    private static void AssertDocumented(Assembly assembly)
     {
-        var documentation = XDocument.Load(Path.ChangeExtension(s_core.Location, ".xml"))
+        var documentation = XDocument.Load(Path.ChangeExtension(assembly.Location, ".xml"))
             .Descendants("member")
             .ToDictionary(member => (string)member.Attribute("name")!);
         var problems = new List<string>();
 
-        foreach (var type in s_core.GetExportedTypes())
+        foreach (var type in assembly.GetExportedTypes())
         {
             var ownTypeParameters = type.GetGenericArguments().Skip(type.DeclaringType?.GetGenericArguments().Length ?? 0).ToArray();
             Check(DocumentationIds.Of(type), [], ownTypeParameters, returns: false);

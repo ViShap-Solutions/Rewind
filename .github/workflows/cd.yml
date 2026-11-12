@@ -146,6 +146,16 @@ jobs:
           -p:Version=${{ env.VERSION }}
           --output ./artifacts
 
+      - name: Pack ViShap.Rewind.Testing
+        run: >
+          dotnet pack
+          src/ViShap.Rewind.Testing/ViShap.Rewind.Testing.csproj
+          --configuration Release
+          --no-build
+          --no-restore
+          -p:Version=${{ env.VERSION }}
+          --output ./artifacts
+
       - name: Pack ViShap.Rewind meta-package
         run: >
           dotnet pack
@@ -164,7 +174,7 @@ jobs:
           echo "Produced packages:"
           find ./artifacts -maxdepth 1 -type f -name '*.nupkg' -print | sort
 
-          EXPECTED_COUNT=3
+          EXPECTED_COUNT=4
           ACTUAL_COUNT="$(
             find ./artifacts \
               -maxdepth 1 \
@@ -181,6 +191,7 @@ jobs:
           EXPECTED_PACKAGES=(
             "ViShap.Rewind.Core.$VERSION.nupkg"
             "ViShap.Rewind.Generator.$VERSION.nupkg"
+            "ViShap.Rewind.Testing.$VERSION.nupkg"
             "ViShap.Rewind.$VERSION.nupkg"
           )
 
@@ -193,6 +204,7 @@ jobs:
 
           EXPECTED_SYMBOLS=(
             "ViShap.Rewind.Core.$VERSION.snupkg"
+            "ViShap.Rewind.Testing.$VERSION.snupkg"
           )
 
           for symbols in "${EXPECTED_SYMBOLS[@]}"; do
@@ -255,6 +267,16 @@ jobs:
               exit 1
             }
           done
+
+          TESTING_SPEC="$(unzip -p "./artifacts/ViShap.Rewind.Testing.$VERSION.nupkg" ViShap.Rewind.Testing.nuspec)"
+          grep -q "id=\"ViShap.Rewind.Core\" version=\"$VERSION\"" <<< "$TESTING_SPEC" || {
+            echo "The Testing package does not depend on ViShap.Rewind.Core $VERSION"
+            exit 1
+          }
+          if grep -q "id=\"ViShap.Rewind.Testing\"" <<< "$META_SPEC"; then
+            echo "The meta-package must not depend on ViShap.Rewind.Testing"
+            exit 1
+          fi
 
           for assembly in ViShap.Rewind.Generator.dll ViShap.Rewind.Generator.CodeFixes.dll; do
             unzip -l "./artifacts/ViShap.Rewind.Generator.$VERSION.nupkg" | grep -q "analyzers/dotnet/cs/$assembly" || {
@@ -321,7 +343,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          EXPECTED_COUNT=3
+          EXPECTED_COUNT=4
           ACTUAL_COUNT="$(
             find ./artifacts \
               -maxdepth 1 \
@@ -338,6 +360,7 @@ jobs:
           EXPECTED_PACKAGES=(
             "ViShap.Rewind.Core.$VERSION.nupkg"
             "ViShap.Rewind.Generator.$VERSION.nupkg"
+            "ViShap.Rewind.Testing.$VERSION.nupkg"
             "ViShap.Rewind.$VERSION.nupkg"
           )
 
@@ -348,10 +371,12 @@ jobs:
             fi
           done
 
-          if [[ ! -f "./artifacts/ViShap.Rewind.Core.$VERSION.snupkg" ]]; then
-            echo "Missing expected symbol package: ViShap.Rewind.Core.$VERSION.snupkg"
-            exit 1
-          fi
+          for symbols in ViShap.Rewind.Core ViShap.Rewind.Testing; do
+            if [[ ! -f "./artifacts/$symbols.$VERSION.snupkg" ]]; then
+              echo "Missing expected symbol package: $symbols.$VERSION.snupkg"
+              exit 1
+            fi
+          done
 
       - name: Authenticate with NuGet Trusted Publishing
         uses: NuGet/login@v1
@@ -367,6 +392,7 @@ jobs:
           PACKAGES=(
             "./artifacts/ViShap.Rewind.Core.$VERSION.nupkg"
             "./artifacts/ViShap.Rewind.Generator.$VERSION.nupkg"
+            "./artifacts/ViShap.Rewind.Testing.$VERSION.nupkg"
             "./artifacts/ViShap.Rewind.$VERSION.nupkg"
           )
 

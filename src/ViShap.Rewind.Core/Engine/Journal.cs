@@ -4,9 +4,13 @@ namespace ViShap.Rewind.Engine;
 /// The undo log shared by an outermost scope and every scope nested in it. A nested scope is a mark in it: rolling
 /// the scope back undoes the entries above its mark, newest first.
 /// </summary>
-/// <remarks>The journal of an asynchronous outermost scope is a <see cref="GuardedJournal"/>.</remarks>
+/// <remarks>
+/// The journal of an asynchronous outermost scope is a <see cref="GuardedJournal"/>, and that of a synchronous one
+/// opened in a flow armed by the Testing package an <see cref="InjectingJournal"/>: both intercept every recording.
+/// </remarks>
 internal class Journal
 {
+    private readonly bool _intercepted;
     [ThreadStatic]
     private static NotifyBuffer? t_notifyBuffer;
 
@@ -16,21 +20,36 @@ internal class Journal
     private JournalEntry?[] _entries = new JournalEntry?[16];
     private int _count;
 
+    public Journal()
+    {
+    }
+
+    private protected Journal(bool intercepted)
+    {
+        _intercepted = intercepted;
+    }
+
     public int Count => _count;
+
+    /// <summary>Gets the fault injector of a journal opened in an armed flow, or <see langword="null"/>.</summary>
+    public virtual IFaultInjector? Injector => null;
 
     /// <summary>Gets whether an entry that raises a notification after the outermost commit was recorded.</summary>
     public bool HasNotifiers { get; private set; }
 
     public void Add(JournalEntry entry)
     {
-        if (this is GuardedJournal guarded)
+        if (_intercepted)
         {
-            guarded.AddGuarded(entry);
+            Intercept(entry);
             return;
         }
 
         AddCore(entry);
     }
+
+    /// <summary>Records <paramref name="entry"/> in a journal that intercepts its recordings.</summary>
+    private protected virtual void Intercept(JournalEntry entry) => AddCore(entry);
 
     private protected void AddCore(JournalEntry entry)
     {

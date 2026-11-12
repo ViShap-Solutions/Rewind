@@ -8,3 +8,26 @@ tracked state is exactly as it was and that no deferred effect ran. It finds the
 instead of tracked state and the effect that was called directly instead of through the scope.
 
 It works with any test framework: a failed check is an exception.
+
+```csharp
+using ViShap.Rewind;
+using ViShap.Rewind.Testing;
+
+var stock = new RewindCell<int>(5);
+var balance = new RewindCell<decimal>(100m);
+
+void Purchase()
+{
+    Rewind.Run(() =>
+    {
+        stock.Value -= 1;
+        balance.Value -= 30m;
+    });
+}
+
+RewindVerify.Rollback(Purchase, () => (stock.Value, balance.Value));   // throws RewindVerificationException if not atomic
+Console.WriteLine("Purchase is atomic");                               // Purchase is atomic
+```
+
+`RewindVerify.Rollback` checks rollback at every failure point, `RewindVerify.Retries` that retried code behaves the
+same on every attempt; `RollbackAsync` and `RetriesAsync` do the same for asynchronous operations.

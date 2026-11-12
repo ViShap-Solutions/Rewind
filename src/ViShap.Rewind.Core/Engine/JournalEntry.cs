@@ -11,6 +11,9 @@ internal abstract class JournalEntry
     /// <summary>Gets what identifies the changed member within its owner: the property description, or <see langword="null"/>.</summary>
     public virtual object? Member => null;
 
+    /// <summary>Gets the name of the changed member: the property name, or <see langword="null"/>.</summary>
+    public virtual string? MemberName => null;
+
     /// <summary>Gets whether the change raises a notification after the outermost commit.</summary>
     public virtual bool Notifies => false;
 
@@ -71,6 +74,8 @@ internal sealed class PropertyEntry<TOwner, T>(TOwner owner, T previous, RewindP
     public override object Owner => owner;
 
     public override object Member => property;
+
+    public override string MemberName => property.Name;
 
     public override bool Notifies => property.Notify is not null;
 
