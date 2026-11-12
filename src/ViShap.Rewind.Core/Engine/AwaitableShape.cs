@@ -9,7 +9,7 @@ internal static class AwaitableShape<T>
     {
         if (s_isAwaitable)
         {
-            throw new RewindScopeException($"Rewind.Run does not accept a block returning {typeof(T).Name}: the block would continue after its scope closed. Run the synchronous part in the scope, or use an asynchronous scope.");
+            throw new RewindScopeException($"Rewind.Run does not accept a block returning {typeof(T).Name}: the block would continue after its scope closed. Run the synchronous part in the scope, or use Rewind.RunAsync.");
         }
     }
 

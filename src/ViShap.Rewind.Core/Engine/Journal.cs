@@ -4,7 +4,8 @@ namespace ViShap.Rewind.Engine;
 /// The undo log shared by an outermost scope and every scope nested in it. A nested scope is a mark in it: rolling
 /// the scope back undoes the entries above its mark, newest first.
 /// </summary>
-internal sealed class Journal
+/// <remarks>The journal of an asynchronous outermost scope is a <see cref="GuardedJournal"/>.</remarks>
+internal class Journal
 {
     [ThreadStatic]
     private static NotifyBuffer? t_notifyBuffer;
@@ -21,6 +22,17 @@ internal sealed class Journal
     public bool HasNotifiers { get; private set; }
 
     public void Add(JournalEntry entry)
+    {
+        if (this is GuardedJournal guarded)
+        {
+            guarded.AddGuarded(entry);
+            return;
+        }
+
+        AddCore(entry);
+    }
+
+    private protected void AddCore(JournalEntry entry)
     {
         if (_count == _entries.Length)
         {

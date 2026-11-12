@@ -11,7 +11,10 @@ namespace ViShap.Rewind;
 /// </remarks>
 public static class Rewind
 {
-    /// <summary>Gets the innermost scope open on the current thread, or <see langword="null"/> when none is open.</summary>
+    /// <summary>
+    /// Gets the innermost scope open for the running code — on the current thread, or in the asynchronous flow that opened
+    /// it with <see cref="RunAsync(Func{Task})"/> — or <see langword="null"/> when none is open.
+    /// </summary>
     /// <remarks>
     /// It is also <see langword="null"/> while a rollback runs and while effects registered with
     /// <see cref="RewindScope.AfterCommit"/> or <see cref="RewindScope.AfterRollback"/> run.
@@ -195,6 +198,154 @@ public static class Rewind
         try
         {
             result = func(scope);
+        }
+        catch (Exception exception)
+        {
+            var failure = scope.Fail(exception);
+            if (failure is null)
+            {
+                throw;
+            }
+
+            throw failure;
+        }
+
+        scope.CompleteManaged();
+        return result;
+    }
+
+    /// <summary>
+    /// Runs the asynchronous block <paramref name="func"/> in a new scope that flows through its <see langword="await"/>s;
+    /// commits when its task completes, rolls back when it faults or is canceled.
+    /// </summary>
+    /// <param name="func">The block to run. One flow at a time uses the scope: parallel branches inside it are refused.</param>
+    /// <returns>A task that completes once the scope has committed, or faults with the block's exception once it has rolled back.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="func"/> is <see langword="null"/>.</exception>
+    /// <exception cref="RewindScopeException">
+    /// A synchronous scope is open, so the block could continue on another thread; or tracked state was written by a
+    /// parallel branch of the block or through the scope after it closed.
+    /// </exception>
+    /// <exception cref="InvalidOperationException"><paramref name="func"/> returned <see langword="null"/> instead of a task.</exception>
+    /// <exception cref="RewindCompensationException">The block failed and a compensation or a rollback effect also threw.</exception>
+    /// <exception cref="RewindEffectException">The state was committed and an effect registered with <see cref="RewindScope.AfterCommit"/> threw.</exception>
+    /// <remarks>
+    /// Every exception but <see cref="ArgumentNullException"/> is carried by the returned task. The commit, the change
+    /// notifications and the effects run where the block's last <see langword="await"/> resumed: on the caller's
+    /// synchronization context, if it has one.
+    /// </remarks>
+    public static Task RunAsync(Func<Task> func)
+    {
+        ArgumentNullException.ThrowIfNull(func);
+        return RunScopeAsync(func, static (func, _) => func());
+    }
+
+    /// <summary>
+    /// Runs the asynchronous block <paramref name="func"/> in a new scope that flows through its <see langword="await"/>s,
+    /// and hands it the scope, for registering effects; commits when its task completes, rolls back when it faults or is
+    /// canceled.
+    /// </summary>
+    /// <param name="func">The block to run. It must not commit or dispose the scope it receives. One flow at a time uses the scope.</param>
+    /// <returns>A task that completes once the scope has committed, or faults with the block's exception once it has rolled back.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="func"/> is <see langword="null"/>.</exception>
+    /// <exception cref="RewindScopeException">
+    /// A synchronous scope is open, so the block could continue on another thread; or tracked state was written by a
+    /// parallel branch of the block or through the scope after it closed.
+    /// </exception>
+    /// <exception cref="InvalidOperationException"><paramref name="func"/> returned <see langword="null"/> instead of a task.</exception>
+    /// <exception cref="RewindCompensationException">The block failed and a compensation or a rollback effect also threw.</exception>
+    /// <exception cref="RewindEffectException">The state was committed and an effect registered with <see cref="RewindScope.AfterCommit"/> threw.</exception>
+    /// <remarks>
+    /// Every exception but <see cref="ArgumentNullException"/> is carried by the returned task. The commit, the change
+    /// notifications and the effects run where the block's last <see langword="await"/> resumed: on the caller's
+    /// synchronization context, if it has one.
+    /// </remarks>
+    public static Task RunAsync(Func<RewindScope, Task> func)
+    {
+        ArgumentNullException.ThrowIfNull(func);
+        return RunScopeAsync(func, static (func, scope) => func(scope));
+    }
+
+    /// <summary>
+    /// Runs the asynchronous block <paramref name="func"/> in a new scope that flows through its <see langword="await"/>s,
+    /// and returns its result once the scope has committed; rolls back when it faults or is canceled.
+    /// </summary>
+    /// <typeparam name="TResult">The type of the result.</typeparam>
+    /// <param name="func">The block to run. One flow at a time uses the scope: parallel branches inside it are refused.</param>
+    /// <returns>A task with the block's result once the scope has committed, or faulted with the block's exception once it has rolled back.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="func"/> is <see langword="null"/>.</exception>
+    /// <exception cref="RewindScopeException">
+    /// A synchronous scope is open, so the block could continue on another thread; or tracked state was written by a
+    /// parallel branch of the block or through the scope after it closed.
+    /// </exception>
+    /// <exception cref="InvalidOperationException"><paramref name="func"/> returned <see langword="null"/> instead of a task.</exception>
+    /// <exception cref="RewindCompensationException">The block failed and a compensation or a rollback effect also threw.</exception>
+    /// <exception cref="RewindEffectException">The state was committed and an effect registered with <see cref="RewindScope.AfterCommit"/> threw.</exception>
+    /// <remarks>
+    /// Every exception but <see cref="ArgumentNullException"/> is carried by the returned task. The commit, the change
+    /// notifications and the effects run where the block's last <see langword="await"/> resumed: on the caller's
+    /// synchronization context, if it has one.
+    /// </remarks>
+    public static Task<TResult> RunAsync<TResult>(Func<Task<TResult>> func)
+    {
+        ArgumentNullException.ThrowIfNull(func);
+        return RunScopeAsync(func, static (func, _) => func());
+    }
+
+    /// <summary>
+    /// Runs the asynchronous block <paramref name="func"/> in a new scope that flows through its <see langword="await"/>s,
+    /// hands it the scope, for registering effects, and returns its result once the scope has committed; rolls back when
+    /// it faults or is canceled.
+    /// </summary>
+    /// <typeparam name="TResult">The type of the result.</typeparam>
+    /// <param name="func">The block to run. It must not commit or dispose the scope it receives. One flow at a time uses the scope.</param>
+    /// <returns>A task with the block's result once the scope has committed, or faulted with the block's exception once it has rolled back.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="func"/> is <see langword="null"/>.</exception>
+    /// <exception cref="RewindScopeException">
+    /// A synchronous scope is open, so the block could continue on another thread; or tracked state was written by a
+    /// parallel branch of the block or through the scope after it closed.
+    /// </exception>
+    /// <exception cref="InvalidOperationException"><paramref name="func"/> returned <see langword="null"/> instead of a task.</exception>
+    /// <exception cref="RewindCompensationException">The block failed and a compensation or a rollback effect also threw.</exception>
+    /// <exception cref="RewindEffectException">The state was committed and an effect registered with <see cref="RewindScope.AfterCommit"/> threw.</exception>
+    /// <remarks>
+    /// Every exception but <see cref="ArgumentNullException"/> is carried by the returned task. The commit, the change
+    /// notifications and the effects run where the block's last <see langword="await"/> resumed: on the caller's
+    /// synchronization context, if it has one.
+    /// </remarks>
+    public static Task<TResult> RunAsync<TResult>(Func<RewindScope, Task<TResult>> func)
+    {
+        ArgumentNullException.ThrowIfNull(func);
+        return RunScopeAsync(func, static (func, scope) => func(scope));
+    }
+
+    private static async Task RunScopeAsync<TBlock>(TBlock block, Func<TBlock, RewindScope, Task> invoke)
+    {
+        var scope = RewindScope.OpenAsync();
+        try
+        {
+            await (invoke(block, scope) ?? throw new InvalidOperationException("The asynchronous block returned null instead of a task."));
+        }
+        catch (Exception exception)
+        {
+            var failure = scope.Fail(exception);
+            if (failure is null)
+            {
+                throw;
+            }
+
+            throw failure;
+        }
+
+        scope.CompleteManaged();
+    }
+
+    private static async Task<TResult> RunScopeAsync<TBlock, TResult>(TBlock block, Func<TBlock, RewindScope, Task<TResult>> invoke)
+    {
+        var scope = RewindScope.OpenAsync();
+        TResult result;
+        try
+        {
+            result = await (invoke(block, scope) ?? throw new InvalidOperationException("The asynchronous block returned null instead of a task."));
         }
         catch (Exception exception)
         {

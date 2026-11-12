@@ -7,6 +7,10 @@ static class Rewind
     void Run<TOperation>(TOperation operation) where TOperation : IRewindOperation
     TResult Run<TResult>(Func<TResult> func)
     TResult Run<TResult>(Func<RewindScope, TResult> func)
+    Task RunAsync(Func<Task> func)
+    Task RunAsync(Func<RewindScope, Task> func)
+    Task<TResult> RunAsync<TResult>(Func<Task<TResult>> func)
+    Task<TResult> RunAsync<TResult>(Func<RewindScope, Task<TResult>> func)
 sealed class RewindScope : IDisposable
     int Depth { get; }
     bool IsActive { get; }

@@ -38,6 +38,10 @@ internal sealed class RewindSymbols
     public bool IsRun(IMethodSymbol? method) =>
         method is { Name: "Run" } && SymbolEqualityComparer.Default.Equals(method.ContainingType, Rewind);
 
+    /// <summary>Returns whether <paramref name="method"/> is an overload of <c>Rewind.RunAsync</c>.</summary>
+    public bool IsRunAsync(IMethodSymbol? method) =>
+        method is { Name: "RunAsync" } && SymbolEqualityComparer.Default.Equals(method.ContainingType, Rewind);
+
     /// <summary>Returns whether <paramref name="method"/> registers an effect: <c>AfterCommit</c>, <c>AfterRollback</c> or <c>Effect</c>.</summary>
     public bool IsEffectRegistration(IMethodSymbol? method) =>
         method is { Name: "AfterCommit" or "AfterRollback" or "Effect" } && SymbolEqualityComparer.Default.Equals(method.ContainingType, Scope);

@@ -10,7 +10,8 @@ namespace ViShap.Rewind;
 /// <remarks>
 /// Scopes nest: a scope opened while another is open is its child, and closes before it. A child that commits
 /// hands its changes and effects to its parent, which still decides; a child that rolls back undoes only what was
-/// done since it was opened. A scope is used only on the thread that opened it.
+/// done since it was opened. A scope opened by <see cref="Rewind.RunAsync(Func{Task})"/> is used by the flow that opened
+/// it, across <see langword="await"/>; any other scope is used only on the thread that opened it.
 /// </remarks>
 public sealed class RewindScope : IDisposable
 {
@@ -19,6 +20,7 @@ public sealed class RewindScope : IDisposable
     private readonly int _mark;
     private readonly int _threadId;
     private readonly bool _managed;
+    private readonly bool _async;
     private List<Action>? _afterCommit;
     private List<Action>? _afterRollback;
     private List<Action<ChangeSet>>? _onCommitted;
@@ -26,13 +28,14 @@ public sealed class RewindScope : IDisposable
     private TransactionStatus? _outcome;
     private ScopeState _state;
 
-    private RewindScope(RewindScope? parent, bool managed)
+    private RewindScope(RewindScope? parent, bool managed, bool isAsync)
     {
         _parent = parent;
-        _journal = parent?._journal ?? new Journal();
+        _journal = parent?._journal ?? (isAsync ? new GuardedJournal() : new Journal());
         _mark = _journal.Count;
         _threadId = Environment.CurrentManagedThreadId;
         _managed = managed;
+        _async = isAsync;
         Depth = parent is null ? 0 : parent.Depth + 1;
         Epoch = ScopeContext.NextEpoch();
         if (parent is null && Transaction.Current is { TransactionInformation.Status: System.Transactions.TransactionStatus.Active } ambient)
@@ -48,9 +51,38 @@ public sealed class RewindScope : IDisposable
     /// <summary>Gets whether the scope is still open: neither committed nor rolled back.</summary>
     public bool IsActive => _state == ScopeState.Active;
 
-    internal long Epoch { get; }
+    /// <summary>Gets the epoch writes compare with; a closed asynchronous scope has one no cell holds, so a write through it is recorded and refused.</summary>
+    internal long Epoch { get; private set; }
 
     internal Journal Journal => _journal;
+
+    internal RewindScope? Parent => _parent;
+
+    /// <summary>Gets whether the scope was opened by <c>Rewind.RunAsync</c> and flows through <see langword="await"/>.</summary>
+    internal bool IsAsync => _async;
+
+    /// <summary>Gets the nearest asynchronous scope enclosing this scope, or <see langword="null"/>.</summary>
+    internal RewindScope? FlowBase
+    {
+        get
+        {
+            for (var scope = _parent; scope is not null; scope = scope._parent)
+            {
+                if (scope._async)
+                {
+                    return scope;
+                }
+            }
+
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Gets the scope the asynchronous flow holds while this scope is current: itself if asynchronous, else the nearest
+    /// asynchronous scope enclosing it, or <see langword="null"/> when its journal is not guarded.
+    /// </summary>
+    internal RewindScope? Flow => _journal is not GuardedJournal ? null : _async ? this : FlowBase;
 
     /// <summary>
     /// Registers <paramref name="action"/> to run once the outermost scope has committed. It is discarded if this
@@ -157,10 +189,34 @@ public sealed class RewindScope : IDisposable
         }
     }
 
-    internal static RewindScope Open(bool managed)
+    internal static RewindScope Open(bool managed) => Open(managed, isAsync: false);
+
+    /// <summary>Opens a managed asynchronous scope; refused while a synchronous scope is the current one.</summary>
+    internal static RewindScope OpenAsync()
     {
-        var scope = new RewindScope(ScopeContext.Current, managed);
-        ScopeContext.Set(scope);
+        if (ScopeContext.Current is { IsAsync: false })
+        {
+            throw new RewindScopeException("Rewind.RunAsync cannot run inside a synchronous scope: after an await the block could continue on another thread. Open the asynchronous scope outside it.");
+        }
+
+        return Open(managed: true, isAsync: true);
+    }
+
+    private static RewindScope Open(bool managed, bool isAsync)
+    {
+        var parent = ScopeContext.Current;
+        if (parent?._journal is GuardedJournal { } guarded && guarded.Top != parent)
+        {
+            throw new RewindScopeException("A scope was opened inside an asynchronous scope that is not the innermost open scope of its journal: by a parallel branch of the flow, or after the scope closed. An asynchronous scope is used by one flow at a time; give each parallel branch its own outermost scope.");
+        }
+
+        var scope = new RewindScope(parent, managed, isAsync);
+        if (scope._journal is GuardedJournal journal)
+        {
+            journal.Top = scope;
+        }
+
+        ScopeContext.Enter(scope);
         return scope;
     }
 
@@ -178,7 +234,7 @@ public sealed class RewindScope : IDisposable
 
     internal void CompleteManaged()
     {
-        if (ScopeContext.Current != this)
+        if (Innermost() != this)
         {
             List<Exception>? failures = null;
             UnwindLeakedChildren(ref failures);
@@ -198,14 +254,13 @@ public sealed class RewindScope : IDisposable
     private void CommitCore()
     {
         _state = ScopeState.Committed;
+        Close();
         if (_parent is not null)
         {
             _parent.Adopt(_afterCommit, _afterRollback, _onCommitted);
-            ScopeContext.Set(_parent);
             return;
         }
 
-        ScopeContext.Set(null);
         switch (TransactionStatus())
         {
             case System.Transactions.TransactionStatus.Active:
@@ -234,11 +289,13 @@ public sealed class RewindScope : IDisposable
     private List<Exception>? RollbackCore()
     {
         _state = ScopeState.RolledBack;
-        ScopeContext.Set(null);
+        Close();
         List<Exception>? failures = null;
+        var suspended = ScopeContext.Suspend();
         _journal.RollbackTo(_mark, ref failures);
         Append(ref failures, Completion.RunEffects(_afterRollback));
-        ScopeContext.Set(_parent);
+        ScopeContext.Resume(suspended);
+
         if (TransactionStatus() == System.Transactions.TransactionStatus.Active)
         {
             try
@@ -285,11 +342,31 @@ public sealed class RewindScope : IDisposable
 
     private void UnwindLeakedChildren(ref List<Exception>? failures)
     {
-        var current = ScopeContext.Current;
+        var current = Innermost();
         while (current is not null && current != this && current.Depth > Depth)
         {
             Append(ref failures, current.RollbackCore());
-            current = ScopeContext.Current;
+            current = Innermost();
+        }
+    }
+
+    /// <summary>
+    /// Gets the innermost open scope of this scope's journal: the top of a guarded journal, which every flow sees alike, or
+    /// the current scope of the thread.
+    /// </summary>
+    private RewindScope? Innermost() => _journal is GuardedJournal guarded ? guarded.Top : ScopeContext.Current;
+
+    /// <summary>
+    /// Makes the parent the innermost scope again. In a guarded journal the scope also gets an epoch no cell holds, so a
+    /// write a branch makes through it after it closed is recorded and refused.
+    /// </summary>
+    private void Close()
+    {
+        ScopeContext.Leave(this);
+        if (_journal is GuardedJournal guarded)
+        {
+            guarded.Top = _parent;
+            Epoch = -1;
         }
     }
 
@@ -313,7 +390,7 @@ public sealed class RewindScope : IDisposable
 
     private void EnsureInnermost()
     {
-        if (_threadId != Environment.CurrentManagedThreadId)
+        if (!_async && _threadId != Environment.CurrentManagedThreadId)
         {
             throw new RewindScopeException("A scope is used only on the thread that opened it.");
         }

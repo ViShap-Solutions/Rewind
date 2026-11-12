@@ -84,8 +84,8 @@ internal static class Descriptors
 
     public static readonly DiagnosticDescriptor AsyncRun = new(
         "RWD1003",
-        "Asynchronous block passed to Rewind.Run",
-        "Rewind.Run runs its block synchronously: an asynchronous block keeps running after the scope has closed, and its writes after the first await are not tracked",
+        "Asynchronous block passed to a method that runs it synchronously",
+        "{0} runs its block synchronously: {1}",
         Category,
         DiagnosticSeverity.Error,
         isEnabledByDefault: true,
@@ -108,4 +108,13 @@ internal static class Descriptors
         DiagnosticSeverity.Warning,
         isEnabledByDefault: true,
         helpLinkUri: HelpRoot + "rwd1005");
+
+    public static readonly DiagnosticDescriptor ParallelBranch = new(
+        "RWD1006",
+        "Parallel branches inside an asynchronous scope",
+        "'{0}' starts parallel branches inside an asynchronous scope: the branches share its journal, and a write from one of them is refused at run time; give each branch its own outermost scope",
+        Category,
+        DiagnosticSeverity.Warning,
+        isEnabledByDefault: true,
+        helpLinkUri: HelpRoot + "rwd1006");
 }

@@ -306,7 +306,7 @@ public sealed class DiagnosticTests
         foreach (var (id, severity) in new[]
         {
             ("RWD0001", "Error"), ("RWD0002", "Warning"), ("RWD0003", "Error"), ("RWD0004", "Warning"), ("RWD0005", "Error"), ("RWD0006", "Warning"),
-            ("RWD1001", "Warning"), ("RWD1002", "Warning"), ("RWD1003", "Error"), ("RWD1004", "Warning"), ("RWD1005", "Warning"),
+            ("RWD1001", "Warning"), ("RWD1002", "Warning"), ("RWD1003", "Error"), ("RWD1004", "Warning"), ("RWD1005", "Warning"), ("RWD1006", "Warning"),
         })
         {
             Assert.Matches($@"(?m)^{id}\s*\|\s*ViShap\.Rewind\s*\|\s*{severity}\s*\|", unshipped);
@@ -324,7 +324,7 @@ public sealed class DiagnosticTests
             .SelectMany(type => ((Microsoft.CodeAnalysis.Diagnostics.DiagnosticAnalyzer)Activator.CreateInstance(type)!).SupportedDiagnostics)
             .ToList();
 
-        Assert.Equal(11, descriptors.Count);
+        Assert.Equal(12, descriptors.Count);
         foreach (var descriptor in descriptors)
         {
             Assert.Equal($"https://github.com/ViShap-Solutions/Rewind/blob/main/docs/diagnostics.md#{descriptor.Id.ToLowerInvariant()}", descriptor.HelpLinkUri);

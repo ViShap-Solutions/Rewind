@@ -18,8 +18,7 @@ internal static class Completion
         var changes = observers is null ? null : journal.ToChangeSet();
         journal.Clear();
 
-        var current = ScopeContext.Current;
-        ScopeContext.Set(null);
+        var suspension = ScopeContext.Suspend();
         List<Exception>? failures = null;
         try
         {
@@ -59,7 +58,7 @@ internal static class Completion
         }
         finally
         {
-            ScopeContext.Set(current);
+            ScopeContext.Resume(suspension);
         }
 
         return failures;
@@ -68,8 +67,7 @@ internal static class Completion
     /// <summary>Undoes every entry of <paramref name="journal"/>, newest first, then runs <paramref name="afterRollback"/>.</summary>
     public static List<Exception>? Rollback(Journal journal, List<Action>? afterRollback)
     {
-        var current = ScopeContext.Current;
-        ScopeContext.Set(null);
+        var suspension = ScopeContext.Suspend();
         List<Exception>? failures = null;
         try
         {
@@ -78,7 +76,7 @@ internal static class Completion
         }
         finally
         {
-            ScopeContext.Set(current);
+            ScopeContext.Resume(suspension);
         }
 
         return failures;
