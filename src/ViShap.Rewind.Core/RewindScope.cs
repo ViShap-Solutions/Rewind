@@ -166,9 +166,19 @@ public sealed class RewindScope : IDisposable
     /// </summary>
     /// <exception cref="RewindScopeException">
     /// The scope is closed, is not the innermost open scope, belongs to another thread, or was opened by
-    /// <see cref="Rewind.Run(Action{RewindScope})"/>, which commits it itself.
+    /// <see cref="Rewind.Run(Action{RewindScope})"/>, which commits it itself; or the ambient transaction the scope
+    /// joined was aborted before the commit, and the scope was rolled back.
     /// </exception>
     /// <exception cref="RewindEffectException">The state was committed and an effect registered with <see cref="AfterCommit"/> threw.</exception>
+    /// <exception cref="RewindCompensationException">
+    /// The ambient transaction the scope joined was aborted before the commit, and a compensation or a rollback effect
+    /// threw while the scope was rolled back.
+    /// </exception>
+    /// <remarks>
+    /// An outermost scope opened in an active ambient <see cref="System.Transactions.Transaction"/> joined it: its commit
+    /// keeps the state and waits for the transaction's outcome, and its notifications, observers and effects run when
+    /// the transaction commits; if the transaction rolls back, the state is restored.
+    /// </remarks>
     public void Commit()
     {
         if (_managed)
