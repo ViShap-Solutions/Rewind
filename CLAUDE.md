@@ -70,16 +70,15 @@ Every file under `internal/` states its class at its head (`internal/README.md`)
 - `internal/performance/` — *plan.* Optimization proposals from measurements, for the owner to decide.
 - `internal/Development-Workflow.md` — *operational* (Russian). Never edited by an agent unless the owner asks.
 
-Current state: **B0–B12a closed, `v1.0.0-beta.1` published; B13 in progress — consumer documentation done on
-`docs/b13-consumer-docs`, awaiting commit; the conformance audit (`audit/v1-conformance`) next.** Core holds the engine
-of contract §4–§7, the collections of §8, `ChangeSet`/notifications/`RewindHistory` of §10, joins an ambient
+Current state: **B0–B12a closed, `v1.0.0-beta.1` published; B13 gate holds — the owner tags `v1.0.0-rc.1`.** Every
+v1 section of the contract is Built and the §18 checklist is complete (2026-11-13, `cea304d`). Core holds the engine of
+contract §4–§7, the collections of §8, `ChangeSet`/notifications/`RewindHistory` of §10, joins an ambient
 `System.Transactions` transaction (§11), binds file operations to scopes with `RewindFile` (§12), runs asynchronous
 blocks with `Rewind.RunAsync` (§13), and reports metrics and traces under `RewindDiagnostics` (§15); the attributes and
 the seam `ViShap.Rewind.Contracts`. The generator implements `[Rewindable]` partial properties and their
 notifications; analyzers report RWD0001–RWD0006 and RWD1001–RWD1006. The Testing package holds `RewindVerify` (§14).
-Every v1 section of the contract is Built; every QA checkpoint of B1–B11 has its test and INV-01…INV-13 are pinned.
-Track A of the Benchmark Plan has its first run (B12); a synchronous scope pays nothing for asynchronous ones (B12a).
-CI builds and tests on Linux and Windows. Next: the audit, its fixes, the closure check, then `v1.0.0-rc.1`.
+INV-01…INV-13 are pinned; the v1 audit is closed (`internal/audit/Audit-v1.0.0.md`); Track A has two runs. CI builds
+and tests on Linux and Windows. After `rc.1`: only fixes until `v1.0.0`, then Track B.
 
 ## Projects
 
