@@ -151,6 +151,9 @@ Key mechanics:
 - **Files are effects.** `RewindFile` writes new content to a side file and renames it over the target at the call;
   in a scope the previous file is kept as `.rewind-bak`, a `CompensationEntry` puts it back on rollback and an
   `AfterCommit` effect deletes it. With no scope the operation is a plain atomic rename. It is the only I/O in Core.
+- **Scope kinds.** A scope computes `_inFlow` once (asynchronous, or nested in an asynchronous scope; guarded journal).
+  Outside a flow, `Open`/`Close`/`RollbackCore` only set `ScopeContext.SetCurrent`; everything about flows lives in
+  the non-inlined `OpenInFlow`/`CloseInFlow` and `Suspend`/`Resume` (PERF-03, D-48).
 - **Asynchronous scopes.** `RunAsync` holds its scope in an `AsyncLocal` whose change callback copies it into the
   thread-static current scope whenever an execution context takes over a thread; a synchronous scope it displaces is
   kept on a per-thread stack (`t_displaced`) and restored when its flow returns. Writes, and opening and closing a

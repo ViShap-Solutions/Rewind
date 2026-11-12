@@ -21,9 +21,12 @@ internal static class ScopeContext
     /// <summary>A number no other scope of the process has had, so a cell can tell whether the current scope already recorded it.</summary>
     public static long NextEpoch() => Interlocked.Increment(ref s_epoch);
 
+    /// <summary>Makes <paramref name="scope"/> the current scope of the thread: a scope outside any asynchronous flow, or none.</summary>
+    public static void SetCurrent(RewindScope? scope) => t_current = scope;
+
     /// <summary>
-    /// Makes <paramref name="scope"/> the innermost scope: of the calling flow for an asynchronous scope, of the thread for
-    /// a synchronous one.
+    /// Makes <paramref name="scope"/>, a scope of an asynchronous flow, the innermost scope: of the flow for an
+    /// asynchronous scope, of the thread for a synchronous one nested in it.
     /// </summary>
     public static void Enter(RewindScope scope)
     {
@@ -35,7 +38,7 @@ internal static class ScopeContext
         t_current = scope;
     }
 
-    /// <summary>Makes the parent of <paramref name="scope"/>, which has closed, the innermost scope again.</summary>
+    /// <summary>Makes the parent of <paramref name="scope"/>, a scope of an asynchronous flow that has closed, the innermost scope again.</summary>
     public static void Leave(RewindScope scope)
     {
         var parent = scope.Parent;
@@ -55,7 +58,7 @@ internal static class ScopeContext
     {
         var current = t_current;
         t_current = null;
-        if (current?.Flow is not null)
+        if (current is { InFlow: true })
         {
             Flow.Scope.Value = null;
         }

@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Transactions;
 
 namespace ViShap.Rewind;
@@ -21,6 +22,7 @@ public sealed class RewindScope : IDisposable
     private readonly int _threadId;
     private readonly bool _managed;
     private readonly bool _async;
+    private readonly bool _inFlow;
     private List<Action>? _afterCommit;
     private List<Action>? _afterRollback;
     private List<Action<ChangeSet>>? _onCommitted;
@@ -36,6 +38,7 @@ public sealed class RewindScope : IDisposable
         _threadId = Environment.CurrentManagedThreadId;
         _managed = managed;
         _async = isAsync;
+        _inFlow = isAsync || (parent?._inFlow ?? false);
         Depth = parent is null ? 0 : parent.Depth + 1;
         Epoch = ScopeContext.NextEpoch();
         if (parent is null && Transaction.Current is { TransactionInformation.Status: System.Transactions.TransactionStatus.Active } ambient)
@@ -79,10 +82,16 @@ public sealed class RewindScope : IDisposable
     }
 
     /// <summary>
-    /// Gets the scope the asynchronous flow holds while this scope is current: itself if asynchronous, else the nearest
-    /// asynchronous scope enclosing it, or <see langword="null"/> when its journal is not guarded.
+    /// Gets whether the scope belongs to an asynchronous flow: it is asynchronous, or nested in an asynchronous scope, and
+    /// its journal is guarded. A scope that does not pays nothing for asynchronous scopes.
     /// </summary>
-    internal RewindScope? Flow => _journal is not GuardedJournal ? null : _async ? this : FlowBase;
+    internal bool InFlow => _inFlow;
+
+    /// <summary>
+    /// Gets the scope the asynchronous flow holds while this scope is current: itself if asynchronous, else the nearest
+    /// asynchronous scope enclosing it, or <see langword="null"/> when it is not in a flow.
+    /// </summary>
+    internal RewindScope? Flow => !_inFlow ? null : _async ? this : FlowBase;
 
     /// <summary>
     /// Registers <paramref name="action"/> to run once the outermost scope has committed. It is discarded if this
@@ -222,17 +231,31 @@ public sealed class RewindScope : IDisposable
     private static RewindScope Open(bool managed, bool isAsync)
     {
         var parent = ScopeContext.Current;
-        if (parent?._journal is GuardedJournal { } guarded && guarded.Top != parent)
+        if (isAsync || parent is { _inFlow: true })
+        {
+            return OpenInFlow(parent, managed, isAsync);
+        }
+
+        var scope = new RewindScope(parent, managed, isAsync: false);
+        ScopeContext.SetCurrent(scope);
+        Telemetry.Opened(scope);
+        return scope;
+    }
+
+    /// <summary>
+    /// Opens a scope in an asynchronous flow: refused when the parent is not the innermost open scope of its journal,
+    /// recorded as that journal's innermost scope, and held by the flow when it is asynchronous itself.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static RewindScope OpenInFlow(RewindScope? parent, bool managed, bool isAsync)
+    {
+        if (parent is not null && ((GuardedJournal)parent._journal).Top != parent)
         {
             throw new RewindScopeException("A scope was opened inside an asynchronous scope that is not the innermost open scope of its journal: by a parallel branch of the flow, or after the scope closed. An asynchronous scope is used by one flow at a time; give each parallel branch its own outermost scope.");
         }
 
         var scope = new RewindScope(parent, managed, isAsync);
-        if (scope._journal is GuardedJournal journal)
-        {
-            journal.Top = scope;
-        }
-
+        ((GuardedJournal)scope._journal).Top = scope;
         ScopeContext.Enter(scope);
         Telemetry.Opened(scope);
         return scope;
@@ -316,10 +339,20 @@ public sealed class RewindScope : IDisposable
         var entries = _journal.Count - _mark;
         Close();
         List<Exception>? failures = null;
-        var suspended = ScopeContext.Suspend();
-        _journal.RollbackTo(_mark, ref failures);
-        Append(ref failures, Completion.RunEffects(_afterRollback));
-        ScopeContext.Resume(suspended);
+        if (_inFlow)
+        {
+            var suspended = ScopeContext.Suspend();
+            _journal.RollbackTo(_mark, ref failures);
+            Append(ref failures, Completion.RunEffects(_afterRollback));
+            ScopeContext.Resume(suspended);
+        }
+        else
+        {
+            ScopeContext.SetCurrent(null);
+            _journal.RollbackTo(_mark, ref failures);
+            Append(ref failures, Completion.RunEffects(_afterRollback));
+            ScopeContext.SetCurrent(_parent);
+        }
 
         if (TransactionStatus() == System.Transactions.TransactionStatus.Active)
         {
@@ -388,20 +421,30 @@ public sealed class RewindScope : IDisposable
     /// Gets the innermost open scope of this scope's journal: the top of a guarded journal, which every flow sees alike, or
     /// the current scope of the thread.
     /// </summary>
-    private RewindScope? Innermost() => _journal is GuardedJournal guarded ? guarded.Top : ScopeContext.Current;
+    private RewindScope? Innermost() => _inFlow ? ((GuardedJournal)_journal).Top : ScopeContext.Current;
 
-    /// <summary>
-    /// Makes the parent the innermost scope again. In a guarded journal the scope also gets an epoch no cell holds, so a
-    /// write a branch makes through it after it closed is recorded and refused.
-    /// </summary>
+    /// <summary>Makes the parent the innermost scope again.</summary>
     private void Close()
     {
-        ScopeContext.Leave(this);
-        if (_journal is GuardedJournal guarded)
+        if (_inFlow)
         {
-            guarded.Top = _parent;
-            Epoch = -1;
+            CloseInFlow();
+            return;
         }
+
+        ScopeContext.SetCurrent(_parent);
+    }
+
+    /// <summary>
+    /// Closes a scope of an asynchronous flow: the parent becomes the innermost scope of the flow and of the journal, and
+    /// the scope gets an epoch no cell holds, so a write a branch makes through it after it closed is recorded and refused.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private void CloseInFlow()
+    {
+        ScopeContext.Leave(this);
+        ((GuardedJournal)_journal).Top = _parent;
+        Epoch = -1;
     }
 
     private void Adopt(List<Action>? afterCommit, List<Action>? afterRollback, List<Action<ChangeSet>>? onCommitted)
