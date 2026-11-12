@@ -1,7 +1,10 @@
 using ViShap.Rewind.Tests.Fixtures;
+using ViShap.Rewind.Tests.Observability;
 
 namespace ViShap.Rewind.Tests.Api;
 
+/// <summary>Runs alone: an example may subscribe a listener to the whole process.</summary>
+[Collection(TelemetryCollection.Name)]
 public sealed class DocumentationExampleTests
 {
     [Fact]

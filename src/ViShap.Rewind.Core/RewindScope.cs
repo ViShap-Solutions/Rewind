@@ -234,11 +234,13 @@ public sealed class RewindScope : IDisposable
         }
 
         ScopeContext.Enter(scope);
+        Telemetry.Opened(scope);
         return scope;
     }
 
     internal Exception? Fail(Exception original)
     {
+        Telemetry.Failed(this, original);
         List<Exception>? failures = null;
         UnwindLeakedChildren(ref failures);
         if (_state == ScopeState.Active)
@@ -275,18 +277,22 @@ public sealed class RewindScope : IDisposable
         if (_parent is not null)
         {
             _parent.Adopt(_afterCommit, _afterRollback, _onCommitted);
+            Telemetry.NestedCommitted(this);
             return;
         }
 
+        var entries = _journal.Count;
         switch (TransactionStatus())
         {
             case System.Transactions.TransactionStatus.Active:
                 TransactionParticipant.Join(_transaction!, new PendingScope(_journal, _onCommitted, _afterCommit, _afterRollback));
+                Telemetry.Pending(this, entries);
                 return;
 
             case System.Transactions.TransactionStatus.Aborted:
                 _state = ScopeState.RolledBack;
                 var rollbackFailures = Completion.Rollback(_journal, _afterRollback);
+                Telemetry.Closed(this, Outcome.RolledBack, entries, rollbackFailures?.Count ?? 0);
                 var aborted = new RewindScopeException("The ambient transaction was aborted before the scope committed; the scope was rolled back.");
                 if (rollbackFailures is not null)
                 {
@@ -297,6 +303,7 @@ public sealed class RewindScope : IDisposable
         }
 
         var failures = Completion.Commit(_journal, _onCommitted, _afterCommit);
+        Telemetry.Closed(this, Outcome.Committed, entries, failures?.Count ?? 0);
         if (failures is not null)
         {
             throw new RewindEffectException(failures);
@@ -306,6 +313,7 @@ public sealed class RewindScope : IDisposable
     private List<Exception>? RollbackCore()
     {
         _state = ScopeState.RolledBack;
+        var entries = _journal.Count - _mark;
         Close();
         List<Exception>? failures = null;
         var suspended = ScopeContext.Suspend();
@@ -323,6 +331,15 @@ public sealed class RewindScope : IDisposable
             {
                 (failures ??= []).Add(exception);
             }
+        }
+
+        if (_parent is null)
+        {
+            Telemetry.Closed(this, Outcome.RolledBack, entries, failures?.Count ?? 0);
+        }
+        else
+        {
+            Telemetry.NestedRolledBack(this, failures?.Count ?? 0);
         }
 
         return failures;

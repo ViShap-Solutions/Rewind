@@ -9,6 +9,9 @@ public static class DocumentationIds
     /// <summary>Returns the identifier of a type, such as <c>T:ViShap.Rewind.RewindCell`1</c>.</summary>
     public static string Of(Type type) => "T:" + TypeId(type);
 
+    /// <summary>Returns the identifier of a field or constant, such as <c>F:ViShap.Rewind.RewindDiagnostics.MeterName</c>.</summary>
+    public static string Of(FieldInfo field) => $"F:{TypeId(field.DeclaringType!)}.{field.Name}";
+
     /// <summary>Returns the identifier of a property, such as <c>P:ViShap.Rewind.RewindCell`1.Value</c>.</summary>
     public static string Of(PropertyInfo property)
     {
