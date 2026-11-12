@@ -42,6 +42,8 @@ Rewind.Run(scope =>
 });
 ```
 
+Files written, copied or deleted with `RewindFile` change at once and are put back if the block fails.
+
 What the library tracks is state it can restore: `RewindCell<T>`, the collections `RewindList<T>`,
 `RewindDictionary<TKey, TValue>` and `RewindSet<T>`, and the members built on them. A plain field keeps whatever
 value the block left in it.

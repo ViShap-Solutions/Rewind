@@ -129,3 +129,11 @@ sealed class RewindHistory
     void Undo()
     void Redo()
     void Clear()
+static class RewindFile
+    void WriteAllBytes(string path, byte[] bytes)
+    void WriteAllText(string path, string? contents)
+    void WriteAllText(string path, string? contents, Encoding encoding)
+    void Write(string path, Action<Stream> write)
+    void Copy(string sourceFileName, string destFileName)
+    void Copy(string sourceFileName, string destFileName, bool overwrite)
+    void Delete(string path)

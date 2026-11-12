@@ -51,7 +51,7 @@ public partial class Account
 | Package | What it holds |
 |---|---|
 | `ViShap.Rewind` | The meta-package to install: brings the two below |
-| `ViShap.Rewind.Core` | Scopes, tracked state, effects, exceptions |
+| `ViShap.Rewind.Core` | Scopes, tracked state, effects, files, exceptions |
 | `ViShap.Rewind.Generator` | Source generator and analyzers; compiler only |
 | `ViShap.Rewind.Testing` | For test projects: proves an operation leaves no trace at every failure point |
 

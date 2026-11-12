@@ -25,8 +25,8 @@ dotnet run --project benchmarks/ViShap.Rewind.Benchmarks --configuration Release
 ```
 
 CI (`.github/workflows/ci.yml`, on every PR to and push on `main`, `release/**`, `support/**`, and by hand) has two
-jobs: restore → build → both test projects (`.trx` uploaded) → pack; and Native AOT, which publishes
-`tests/ViShap.Rewind.AotConsumer` with native AOT on Linux, fails on any `IL` warning, and diffs its output with the
+jobs: restore → build → both test projects (`.trx` uploaded) → pack, on Linux and on Windows; and Native AOT, which
+publishes `tests/ViShap.Rewind.AotConsumer` with native AOT on Linux, fails on any `IL` warning, and diffs its output with the
 same program under the JIT. CD (`cd.yml`) fires on `v*` tags: a stable `vX.Y.Z` must point exactly at `origin/main`
 HEAD; a pre-release `vX.Y.Z-alpha.N`, `-beta.N` or `-rc.N` must point at a commit on an origin `release/*` branch
 and is refused once `vX.Y.Z` exists. Its first job builds, tests and packs Core, Generator and the meta-package with
@@ -70,12 +70,13 @@ Every file under `internal/` states its class at its head (`internal/README.md`)
 - `internal/performance/` — *plan.* Optimization proposals from measurements, for the owner to decide.
 - `internal/Development-Workflow.md` — *operational* (Russian). Never edited by an agent unless the owner asks.
 
-Current state: **B0–B6 closed, `v1.0.0-alpha.1` published; B7 gate holds — awaiting commit.** Core holds the engine
-of contract §4–§7, the collections of §8, `ChangeSet`/notifications/`RewindHistory` of §10, and joins an ambient
-`System.Transactions` transaction (§11); the attributes and the seam `ViShap.Rewind.Contracts`. The generator
-implements `[Rewindable]` partial properties and their notifications; analyzers report RWD0001–RWD0006 and
-RWD1001–RWD1005. Every QA checkpoint of B1–B7 has its test and INV-01…INV-13 are pinned. The Testing project has no
-code yet. Next: B8 (`RewindFile`).
+Current state: **B0–B7 closed, `v1.0.0-alpha.1` published; B8 gate holds — awaiting commit.** Core holds the engine
+of contract §4–§7, the collections of §8, `ChangeSet`/notifications/`RewindHistory` of §10, joins an ambient
+`System.Transactions` transaction (§11), and binds file operations to scopes with `RewindFile` (§12); the attributes
+and the seam `ViShap.Rewind.Contracts`. The generator implements `[Rewindable]` partial properties and their
+notifications; analyzers report RWD0001–RWD0006 and RWD1001–RWD1005. Every QA checkpoint of B1–B8 has its test and
+INV-01…INV-13 are pinned. CI builds and tests on Linux and Windows. The Testing project has no code yet. Next: B9
+(asynchronous scopes; owner question Q-06 first).
 
 ## Projects
 
@@ -135,6 +136,9 @@ Key mechanics:
   rolls the transaction back. `Engine/Completion` runs the end of a commit or rollback for both paths.
 - **History replays entries through the recording paths.** `RewindHistory.Undo` undoes a step's entries inside a new
   scope that records them, so that scope's change set is the redo step.
+- **Files are effects.** `RewindFile` writes new content to a side file and renames it over the target at the call;
+  in a scope the previous file is kept as `.rewind-bak`, a `CompensationEntry` puts it back on rollback and an
+  `AfterCommit` effect deletes it. With no scope the operation is a plain atomic rename. It is the only I/O in Core.
 - **No current scope during rollback and effects.** `ScopeContext` is set to `null` while entries are undone and
   while `AfterCommit`/`AfterRollback` run, so writes there are plain writes.
 - **`Run` refuses awaitable results** before running the block (`AwaitableShape<T>`).

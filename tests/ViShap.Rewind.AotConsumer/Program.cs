@@ -146,6 +146,24 @@ using (var transaction = new System.Transactions.TransactionScope())
 
 Report("Transaction committed", pending.Value);
 
+var files = Directory.CreateTempSubdirectory("rewind-aot-");
+var settings = Path.Join(files.FullName, "settings.txt");
+RewindFile.WriteAllText(settings, "v1");
+Attempt(() => Rewind.Run(() =>
+{
+    RewindFile.WriteAllText(settings, "v2");
+    throw new InvalidOperationException("declined");
+}));
+Report("File rolled back", File.ReadAllText(settings));
+Rewind.Run(() =>
+{
+    RewindFile.Write(settings, stream => stream.Write("v3"u8));
+    RewindFile.Copy(settings, Path.Join(files.FullName, "copy.txt"));
+    RewindFile.Delete(Path.Join(files.FullName, "missing.txt"));
+});
+Report("File committed", $"{File.ReadAllText(settings)} {files.GetFiles().Length}");
+files.Delete(recursive: true);
+
 Report("Effects", string.Join(", ", log));
 Report("Current after all", Rewind.Current is null ? "none" : "open");
 
