@@ -133,6 +133,10 @@ public sealed class TracingTests
         };
         meters.Start();
         Assert.Equal(5, instruments.Count);
+#if NET9_0_OR_GREATER
+        // .NET 8 keeps an instrument enabled after the listener that enabled it is disposed, so with the other
+        // telemetry tests' listeners gone the flag says nothing there; the measurements still reach no one.
         Assert.All(instruments, instrument => Assert.False(instrument.Enabled));
+#endif
     }
 }

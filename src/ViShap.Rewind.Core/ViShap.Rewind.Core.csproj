@@ -1,6 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <TargetFrameworks>$(RewindTargetFrameworks)</TargetFrameworks>
+    <TargetFramework />
     <RootNamespace>ViShap.Rewind</RootNamespace>
     <AssemblyName>ViShap.Rewind.Core</AssemblyName>
     <IsPackable>true</IsPackable>

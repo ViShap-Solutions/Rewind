@@ -186,7 +186,17 @@ internal static class Telemetry
     {
         if (scope.Parent is null && s_activities.TryGetValue(scope, out var activity))
         {
+#if NET9_0_OR_GREATER
             activity.AddException(exception);
+#else
+            // The event Activity.AddException records on later runtimes, under the OpenTelemetry exception conventions.
+            activity.AddEvent(new ActivityEvent("exception", tags: new ActivityTagsCollection
+            {
+                { "exception.message", exception.Message },
+                { "exception.stacktrace", exception.ToString() },
+                { "exception.type", exception.GetType().FullName },
+            }));
+#endif
             activity.SetStatus(ActivityStatusCode.Error, exception.GetType().FullName);
         }
     }

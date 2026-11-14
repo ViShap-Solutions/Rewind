@@ -10,8 +10,21 @@ the process is run, discarded or compensated according to how it was registered.
 dotnet add package ViShap.Rewind
 ```
 
-The package brings the library and its source generator. Targets .NET 10. For tests, add `ViShap.Rewind.Testing` to
-the test project ([testing.md](testing.md)).
+The package brings the library and its source generator. Targets .NET 8, .NET 9 and .NET 10. For tests, add
+`ViShap.Rewind.Testing` to the test project ([testing.md](testing.md)).
+
+Build with the .NET 10 SDK: the source generator runs in its compiler, and an older SDK does not load it (CS9057). A
+`[Rewindable]` type declares partial properties, which need C# 13 — the default from .NET 9. A project that targets
+.NET 8 raises its language version:
+
+```xml
+<PropertyGroup>
+  <TargetFramework>net8.0</TargetFramework>
+  <LangVersion>13</LangVersion>
+</PropertyGroup>
+```
+
+`RewindCell<T>`, the collections and every scope API work at the language version a project already has.
 
 ## The first scope
 

@@ -24,10 +24,13 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
 
-      - name: Setup .NET 10 SDK
+      - name: Setup .NET 10 SDK and the .NET 8 and 9 runtimes the tests run on
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: |
+            8.0.x
+            9.0.x
+            10.0.x
 
       - name: Extract and validate release version
         shell: bash
@@ -214,6 +217,15 @@ jobs:
             fi
           done
 
+          for package in ViShap.Rewind.Core ViShap.Rewind.Testing; do
+            for framework in net8.0 net9.0 net10.0; do
+              unzip -l "./artifacts/$package.$VERSION.nupkg" | grep -q "lib/$framework/$package.dll" || {
+                echo "$package does not hold lib/$framework/$package.dll"
+                exit 1
+              }
+            done
+          done
+
           echo "All expected packages are present."
 
       - name: Validate package metadata
@@ -261,6 +273,12 @@ jobs:
           done
 
           META_SPEC="$(unzip -p "./artifacts/ViShap.Rewind.$VERSION.nupkg" ViShap.Rewind.nuspec)"
+          for framework in net8.0 net9.0 net10.0; do
+            grep -q "targetFramework=\"$framework\"" <<< "$META_SPEC" || {
+              echo "The meta-package has no dependency group for $framework"
+              exit 1
+            }
+          done
           for dependency in ViShap.Rewind.Core ViShap.Rewind.Generator; do
             grep -q "id=\"$dependency\" version=\"$VERSION\"" <<< "$META_SPEC" || {
               echo "The meta-package does not depend on $dependency $VERSION"

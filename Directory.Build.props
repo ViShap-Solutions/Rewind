@@ -2,6 +2,8 @@
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
+    <!-- The frameworks the shipped runtime packages target, and the tests that run against each of them. -->
+    <RewindTargetFrameworks>net8.0;net9.0;net10.0</RewindTargetFrameworks>
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
