@@ -37,6 +37,7 @@ internal static class Charts
             ("PropertyBenchmarks", "w8-properties.svg", "W8 — generated property, cell, plain property", ""),
             ("AsyncScopeBenchmarks", "w9-async-scope.svg", "W9 — an asynchronous scope against Run", ""),
             ("CellWriteBenchmarks", "w9-w10-cell-write.svg", "W9, W10 — a tracked write, default job", "Writes"),
+            ("NotificationBenchmarks", "w15-notifications.svg", "W15 — notifications with a subscriber", ""),
         })
         {
             var rows = Rows(results, suite);

@@ -15,4 +15,16 @@
     <PackageVersion Include="System.Collections.Immutable" Version="9.0.0" />
   </ItemGroup>
 
+  <!-- The integration tests: real databases in Docker, EF Core, and a headless UI. -->
+  <ItemGroup>
+    <PackageVersion Include="Testcontainers.PostgreSql" Version="4.16.0" />
+    <PackageVersion Include="Testcontainers.MsSql" Version="4.16.0" />
+    <PackageVersion Include="Npgsql" Version="10.0.3" />
+    <PackageVersion Include="Microsoft.Data.SqlClient" Version="7.1.2" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.15" />
+    <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
+    <PackageVersion Include="Avalonia" Version="12.1.6" />
+    <PackageVersion Include="Avalonia.Headless" Version="12.1.6" />
+  </ItemGroup>
+
 </Project>

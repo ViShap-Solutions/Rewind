@@ -353,6 +353,7 @@ public sealed class RewindScope : IDisposable
         {
             var suspended = ScopeContext.Suspend();
             _journal.RollbackTo(_mark, ref failures);
+            NotifyRestoredIfOutermost(ref failures);
             Append(ref failures, Completion.RunEffects(_afterRollback));
             ScopeContext.Resume(suspended);
         }
@@ -360,6 +361,7 @@ public sealed class RewindScope : IDisposable
         {
             ScopeContext.SetCurrent(null);
             _journal.RollbackTo(_mark, ref failures);
+            NotifyRestoredIfOutermost(ref failures);
             Append(ref failures, Completion.RunEffects(_afterRollback));
             ScopeContext.SetCurrent(_parent);
         }
@@ -494,6 +496,18 @@ public sealed class RewindScope : IDisposable
     }
 
     private static void Append(ref List<Exception>? target, List<Exception>? source) => Completion.Append(ref target, source);
+
+    /// <summary>
+    /// After the rollback of an outermost scope, notifies what it and its rolled-back children restored. A nested scope
+    /// leaves that to its outermost scope, which may still be open.
+    /// </summary>
+    private void NotifyRestoredIfOutermost(ref List<Exception>? failures)
+    {
+        if (_parent is null && _journal.HasRestored)
+        {
+            Completion.NotifyRestored(_journal, ref failures);
+        }
+    }
 
     private enum ScopeState
     {

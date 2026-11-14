@@ -59,6 +59,54 @@ public sealed class DocumentationExampleTests
         Assert.Null(Rewind.Current);
     }
 
+    /// <summary>
+    /// What an example prints is what the page says it prints: every line written to the console appears, in the order
+    /// it was written, as a comment of the example — trailing a line of code or on a line of its own. A comment may go
+    /// on after the printed text (<c>// 100 0, and no receipt was sent</c>); comments that explain rather than show
+    /// output are allowed anywhere.
+    /// </summary>
+    [Fact]
+    public void Examples_EveryTopLevelBlock_PrintsWhatItsCommentsSay()
+    {
+        var failures = new List<string>();
+
+        foreach (var example in CodeExamples.All())
+        {
+            var (assembly, problems) = CodeExamples.Compile(example);
+            if (assembly is null || problems.Count > 0 || !IsProgram(assembly))
+            {
+                continue;
+            }
+
+            var output = new StringWriter();
+            if (CodeExamples.Run(assembly, output) is not null)
+            {
+                continue;
+            }
+
+            var comments = example.Code.Split('\n')
+                .Select(line => line.IndexOf("//", StringComparison.Ordinal) is var at and >= 0 ? line[(at + 2)..].Trim() : null)
+                .OfType<string>()
+                .ToList();
+            var printed = output.ToString().ReplaceLineEndings("\n").Split('\n').Select(line => line.Trim()).Where(line => line.Length > 0);
+            var position = 0;
+
+            foreach (var line in printed)
+            {
+                var found = comments.FindIndex(position, comment => comment == line || comment.StartsWith(line + ",", StringComparison.Ordinal) || comment.StartsWith(line + "  ", StringComparison.Ordinal));
+                if (found < 0)
+                {
+                    failures.Add($"{example.Location}: prints \"{line}\", which no comment after the previous output shows");
+                    break;
+                }
+
+                position = found + 1;
+            }
+        }
+
+        Assert.True(failures.Count == 0, "Documentation examples print what their comments do not say:" + Environment.NewLine + string.Join(Environment.NewLine, failures));
+    }
+
     private static bool IsProgram(byte[] assembly)
     {
         using var stream = new MemoryStream(assembly);

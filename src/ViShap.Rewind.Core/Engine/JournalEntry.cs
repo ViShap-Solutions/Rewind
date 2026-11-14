@@ -14,8 +14,14 @@ internal abstract class JournalEntry
     /// <summary>Gets the name of the changed member: the property name, or <see langword="null"/>.</summary>
     public virtual string? MemberName => null;
 
-    /// <summary>Gets whether the change raises a notification after the outermost commit.</summary>
+    /// <summary>Gets whether the change raises a notification after the outermost scope commits or rolls it back.</summary>
     public virtual bool Notifies => false;
+
+    /// <summary>
+    /// Gets whether the change is notified now, when the outermost scope ends: what <see cref="Notifies"/> said at the
+    /// recording, or, for a collection, whether it has a subscriber now.
+    /// </summary>
+    public virtual bool NotifiesAtEnd => Notifies;
 
     /// <summary>Undoes the change without recording anything.</summary>
     public abstract void Undo();
@@ -98,12 +104,19 @@ internal sealed class PropertyEntry<TOwner, T>(TOwner owner, T previous, RewindP
     public override void Notify() => property.Notify?.Invoke(owner);
 }
 
-/// <summary>A mutation of a Rewind collection: the collection is reported as a whole.</summary>
+/// <summary>
+/// A mutation of a Rewind collection: the collection is reported as a whole, and notified with a reset once the
+/// outermost scope commits or rolls back.
+/// </summary>
 internal abstract class CollectionEntry(object collection) : JournalEntry
 {
     public override object Owner => collection;
 
+    public override bool NotifiesAtEnd => collection is ICollectionNotifier { Observed: true };
+
     public override bool Changed() => true;
 
     public override Change Describe() => new(collection, null, null, null);
+
+    public override void Notify() => ((ICollectionNotifier)collection).NotifyReset();
 }

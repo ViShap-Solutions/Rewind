@@ -17,6 +17,11 @@ namespace ViShap.Rewind;
 /// when an ambient transaction the scope joined ends in doubt.
 /// </para>
 /// <para>
+/// A path that is a symbolic link is written and copied through: the file the link finally points to is replaced, its
+/// side files are made beside it, and the link stays a link. <see cref="Delete"/> deletes the link itself, as
+/// <see cref="File.Delete"/> does.
+/// </para>
+/// <para>
 /// A change is visible to other processes from the call on. A file operation is an effect, not tracked state: it does
 /// not appear in a <see cref="ChangeSet"/>, and <see cref="RewindHistory"/> neither undoes nor redoes it.
 /// </para>
@@ -119,7 +124,7 @@ public static class RewindFile
     {
         ArgumentException.ThrowIfNullOrEmpty(sourceFileName);
         ArgumentException.ThrowIfNullOrEmpty(destFileName);
-        var target = Path.GetFullPath(destFileName);
+        var target = FinalTarget(destFileName);
         var temp = SideName(target, "tmp");
         try
         {
@@ -158,7 +163,7 @@ public static class RewindFile
 
     private static void Install<TState>(string path, TState state, Action<Stream, TState> write)
     {
-        var target = Path.GetFullPath(path);
+        var target = FinalTarget(path);
         var temp = SideName(target, "tmp");
         try
         {
@@ -255,6 +260,31 @@ public static class RewindFile
     {
         scope.Journal.Add(new CompensationEntry(() => File.Move(backup, target, overwrite: true)));
         scope.AfterCommit(() => File.Delete(backup));
+    }
+
+    /// <summary>
+    /// The file a write lands in: <paramref name="path"/> made absolute, or — when it is a symbolic link — the file the
+    /// link finally points to, so the new content replaces that file and the link stays a link, as a plain write through
+    /// the link would leave it.
+    /// </summary>
+    private static string FinalTarget(string path)
+    {
+        var full = Path.GetFullPath(path);
+        var file = new FileInfo(full);
+        if (file.LinkTarget is null)
+        {
+            return full;
+        }
+
+        try
+        {
+            return file.ResolveLinkTarget(returnFinalTarget: true) is { } resolved ? Path.GetFullPath(resolved.FullName) : full;
+        }
+        catch (IOException)
+        {
+            // A link whose chain cannot be followed is written as the path itself names it.
+            return full;
+        }
     }
 
     private static string SideName(string target, string kind)

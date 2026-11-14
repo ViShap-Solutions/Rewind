@@ -106,11 +106,17 @@ public static partial class CodeExamples
     /// Runs the entry point of <paramref name="assembly"/> on a dedicated thread with the console output discarded.
     /// Returns the exception it ended with, or <see langword="null"/>.
     /// </summary>
-    public static Exception? Run(byte[] assembly)
+    public static Exception? Run(byte[] assembly) => Run(assembly, TextWriter.Null);
+
+    /// <summary>
+    /// Runs the entry point of <paramref name="assembly"/> on a dedicated thread, its console output written to
+    /// <paramref name="output"/>. Returns the exception it ended with, or <see langword="null"/>.
+    /// </summary>
+    public static Exception? Run(byte[] assembly, TextWriter output)
     {
         var context = new AssemblyLoadContext("Example", isCollectible: true);
         var previous = Console.Out;
-        Console.SetOut(TextWriter.Null);
+        Console.SetOut(output);
         try
         {
             var entryPoint = context.LoadFromStream(new MemoryStream(assembly)).EntryPoint

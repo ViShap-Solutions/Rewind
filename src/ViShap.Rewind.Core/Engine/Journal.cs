@@ -19,6 +19,7 @@ internal class Journal
 
     private JournalEntry?[] _entries = new JournalEntry?[16];
     private int _count;
+    private List<JournalEntry>? _restored;
 
     public Journal()
     {
@@ -36,6 +37,12 @@ internal class Journal
 
     /// <summary>Gets whether an entry that raises a notification after the outermost commit was recorded.</summary>
     public bool HasNotifiers { get; private set; }
+
+    /// <summary>Gets whether a rollback kept entries whose members are to be notified when the outermost scope ends.</summary>
+    public bool HasRestored => _restored is not null;
+
+    /// <summary>Records that a change recorded in this journal is to be notified, for a recording that decides it itself.</summary>
+    public void MarkNotifying() => HasNotifiers = true;
 
     public void Add(JournalEntry entry)
     {
@@ -65,14 +72,59 @@ internal class Journal
         }
     }
 
-    /// <summary>Undoes every entry above <paramref name="mark"/>, newest first; one that throws does not stop the others.</summary>
+    /// <summary>
+    /// Undoes every entry above <paramref name="mark"/>, newest first; one that throws does not stop the others. An
+    /// entry that notifies and whose member differs from its recorded value is kept, so the member is notified once the
+    /// outermost scope ends: whatever showed the value being undone — a two-way binding wrote it — shows the restored one.
+    /// </summary>
     public void RollbackTo(int mark, ref List<Exception>? failures)
+    {
+        if (HasNotifiers)
+        {
+            RollbackKeepingNotifiers(mark, ref failures);
+            return;
+        }
+
+        for (var index = _count - 1; index >= mark; index--)
+        {
+            var entry = _entries[index]!;
+            _entries[index] = null;
+            _count = index;
+            try
+            {
+                entry.Undo();
+            }
+            catch (Exception exception)
+            {
+                (failures ??= []).Add(exception);
+            }
+        }
+    }
+
+    /// <summary>
+    /// <see cref="RollbackTo"/> for a journal that recorded something notifying: before undoing a notifying entry, keeps
+    /// it when its member differs from the value it recorded.
+    /// </summary>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    private void RollbackKeepingNotifiers(int mark, ref List<Exception>? failures)
     {
         for (var index = _count - 1; index >= mark; index--)
         {
             var entry = _entries[index]!;
             _entries[index] = null;
             _count = index;
+            try
+            {
+                if (entry.NotifiesAtEnd && entry.Changed())
+                {
+                    (_restored ??= []).Add(entry);
+                }
+            }
+            catch (Exception exception)
+            {
+                (failures ??= []).Add(exception);
+            }
+
             try
             {
                 entry.Undo();
@@ -115,7 +167,7 @@ internal class Journal
     /// </summary>
     public List<JournalEntry>? RentNotifications()
     {
-        if (!HasNotifiers)
+        if (!HasNotifiers && _restored is null)
         {
             return null;
         }
@@ -125,10 +177,25 @@ internal class Journal
         for (var index = 0; index < _count; index++)
         {
             var entry = _entries[index]!;
-            if (entry.Notifies && buffer.Seen.Add((entry.Owner!, entry.Member)) && entry.Changed())
+            if (entry.NotifiesAtEnd && buffer.Seen.Add((entry.Owner!, entry.Member)) && entry.Changed())
             {
                 buffer.Entries.Add(entry);
             }
+        }
+
+        // A member a rolled-back scope changed is notified even though its value is back where it was.
+        if (_restored is { } restored)
+        {
+            for (var index = restored.Count - 1; index >= 0; index--)
+            {
+                var entry = restored[index];
+                if (buffer.Seen.Add((entry.Owner!, entry.Member)))
+                {
+                    buffer.Entries.Add(entry);
+                }
+            }
+
+            _restored = null;
         }
 
         buffer.Seen.Clear();
@@ -158,6 +225,7 @@ internal class Journal
         Array.Clear(_entries, 0, _count);
         _count = 0;
         HasNotifiers = false;
+        _restored = null;
     }
 
     private sealed class NotifyBuffer

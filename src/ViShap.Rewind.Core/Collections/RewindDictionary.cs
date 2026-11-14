@@ -1,4 +1,5 @@
 using System.Collections;
+using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 
 namespace ViShap.Rewind;
@@ -17,12 +18,48 @@ namespace ViShap.Rewind;
 /// threads. Mutating the dictionary while enumerating it, including by a rollback, makes the enumeration throw
 /// <see cref="InvalidOperationException"/>. A rollback restores which keys are present and their values; the order in
 /// which the dictionary enumerates them is not part of what it restores.
+/// <para>
+/// The dictionary raises <see cref="PropertyChanged"/> for <c>Count</c> when it changed and for the indexer,
+/// <c>Keys</c> and <c>Values</c>: at once for a mutation made with no scope open; once the outermost scope commits or
+/// rolls back for a dictionary a scope changed; nothing while a scope is open. A list for a UI to show is a
+/// <see cref="RewindList{T}"/>, which also raises <c>CollectionChanged</c>.
+/// </para>
 /// </remarks>
-public sealed class RewindDictionary<TKey, TValue> : IDictionary<TKey, TValue>, IReadOnlyDictionary<TKey, TValue>
+public sealed class RewindDictionary<TKey, TValue> : IDictionary<TKey, TValue>, IReadOnlyDictionary<TKey, TValue>,
+    INotifyPropertyChanged, ICollectionNotifier
     where TKey : notnull
 {
     private Dictionary<TKey, TValue> _items;
     private int _version;
+
+    /// <summary>
+    /// Occurs when the dictionary changed, for <c>Count</c> when it changed and for the indexer, <c>Keys</c> and
+    /// <c>Values</c>: at once for a mutation made with no scope open, and once the outermost scope that changed the
+    /// dictionary commits or rolls back.
+    /// </summary>
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    bool ICollectionNotifier.Observed => Observed;
+
+    /// <summary>Records <paramref name="entry"/> in <paramref name="scope"/>, and tells its journal there is a notification to raise when anything subscribes.</summary>
+    private void Record(RewindScope scope, JournalEntry entry)
+    {
+        scope.Journal.Add(entry);
+        if (Observed)
+        {
+            scope.Journal.MarkNotifying();
+        }
+    }
+
+    private void RecordInCurrentScope(JournalEntry entry)
+    {
+        if (ScopeContext.Current is { } scope)
+        {
+            Record(scope, entry);
+        }
+    }
+
+    private bool Observed => PropertyChanged is not null;
 
     /// <summary>Creates an empty dictionary that compares keys with the default equality comparer.</summary>
     public RewindDictionary()
@@ -98,7 +135,11 @@ public sealed class RewindDictionary<TKey, TValue> : IDictionary<TKey, TValue>, 
             var scope = ScopeContext.Current;
             if (scope is not null)
             {
-                scope.Journal.Add(existed ? new SetEntry(this, key, previous!) : new RemoveEntry(this, key));
+                Record(scope, existed ? new SetEntry(this, key, previous!) : new RemoveEntry(this, key));
+            }
+            else if (PropertyChanged is not null)
+            {
+                Raise(countChanged: !existed);
             }
         }
     }
@@ -149,7 +190,15 @@ public sealed class RewindDictionary<TKey, TValue> : IDictionary<TKey, TValue>, 
         }
 
         _version++;
-        ScopeContext.Current?.Journal.Add(new AddEntry(this, key, value));
+        if (ScopeContext.Current is { } scope)
+        {
+            Record(scope, new AddEntry(this, key, value));
+        }
+        else if (PropertyChanged is not null)
+        {
+            Raise(countChanged: true);
+        }
+
         return true;
     }
 
@@ -169,10 +218,15 @@ public sealed class RewindDictionary<TKey, TValue> : IDictionary<TKey, TValue>, 
         if (scope is null)
         {
             _items.Clear();
+            if (PropertyChanged is not null)
+            {
+                Raise(countChanged: true);
+            }
+
             return;
         }
 
-        scope.Journal.Add(new RestoreEntry(this, _items));
+        Record(scope, new RestoreEntry(this, _items));
         _items = new Dictionary<TKey, TValue>(_items.Comparer);
     }
 
@@ -211,7 +265,28 @@ public sealed class RewindDictionary<TKey, TValue> : IDictionary<TKey, TValue>, 
     private void Added(TKey key)
     {
         _version++;
-        ScopeContext.Current?.Journal.Add(new RemoveEntry(this, key));
+        if (ScopeContext.Current is { } scope)
+        {
+            Record(scope, new RemoveEntry(this, key));
+        }
+        else if (PropertyChanged is not null)
+        {
+            Raise(countChanged: true);
+        }
+    }
+
+    void ICollectionNotifier.NotifyReset() => Raise(countChanged: true);
+
+    private void Raise(bool countChanged)
+    {
+        if (countChanged)
+        {
+            PropertyChanged?.Invoke(this, CollectionNotifications.Count);
+        }
+
+        PropertyChanged?.Invoke(this, CollectionNotifications.Indexer);
+        PropertyChanged?.Invoke(this, CollectionNotifications.Keys);
+        PropertyChanged?.Invoke(this, CollectionNotifications.Values);
     }
 
     private void ThrowIfModified(int version)
@@ -367,7 +442,7 @@ public sealed class RewindDictionary<TKey, TValue> : IDictionary<TKey, TValue>, 
 
         public override void UndoRecorded()
         {
-            ScopeContext.Current?.Journal.Add(new RestoreEntry(dictionary, dictionary._items));
+            dictionary.RecordInCurrentScope(new RestoreEntry(dictionary, dictionary._items));
             dictionary._items = items;
             dictionary._version++;
         }

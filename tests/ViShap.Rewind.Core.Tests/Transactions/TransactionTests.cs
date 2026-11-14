@@ -37,7 +37,7 @@ public sealed class TransactionTests
     }
 
     [Fact]
-    public void Rollback_OfAmbientTransaction_UndoesScopeAndRunsRollbackEffects()
+    public void Rollback_OfAmbientTransaction_UndoesScopeNotifiesWhatItRestoredAndRunsRollbackEffects()
     {
         var cell = new RewindCell<int>(0);
         var document = new Document { Title = "Draft" };
@@ -58,7 +58,7 @@ public sealed class TransactionTests
         Assert.Equal(0, cell.Value);
         Assert.Equal("Draft", document.Title);
         Assert.Equal(new[] { "after rollback" }, log);
-        Assert.Empty(notified.Names);
+        Assert.Equal(new[] { "Title" }, notified.Names);
     }
 
     [Fact]
@@ -262,5 +262,88 @@ public sealed class TransactionTests
 
         Assert.Equal(1, cell.Value);
         Assert.Equal(new[] { "after commit" }, log);
+    }
+
+    [Fact]
+    public void JoinedScope_SingleResourceManager_StillCommitsInOnePhase()
+    {
+        var cell = new RewindCell<int>(0);
+        var database = new SinglePhaseResourceManager();
+
+        using (var transaction = new TransactionScope())
+        {
+            Transaction.Current!.EnlistVolatile(database, EnlistmentOptions.None);
+            Rewind.Run(() => cell.Value = 1);
+            transaction.Complete();
+        }
+
+        Assert.Equal(new[] { "single-phase commit" }, database.Calls);
+        Assert.Equal(1, cell.Value);
+    }
+
+    [Fact]
+    public void JoinedScope_SingleResourceManagerRefusesItsCommit_StateRestored()
+    {
+        var cell = new RewindCell<int>(0);
+        var database = new SinglePhaseResourceManager { Refuse = true };
+
+        Assert.Throws<TransactionAbortedException>(() =>
+        {
+            using var transaction = new TransactionScope();
+            Transaction.Current!.EnlistVolatile(database, EnlistmentOptions.None);
+            Rewind.Run(() => cell.Value = 1);
+            transaction.Complete();
+        });
+
+        Assert.Equal(new[] { "single-phase commit" }, database.Calls);
+        Assert.Equal(0, cell.Value);
+    }
+
+    /// <summary>
+    /// A resource manager that commits in one phase when it is the only participant and refuses a prepare, as a
+    /// PostgreSQL connection does when prepared transactions are disabled.
+    /// </summary>
+    private sealed class SinglePhaseResourceManager : ISinglePhaseNotification
+    {
+        public List<string> Calls { get; } = [];
+
+        public bool Refuse { get; init; }
+
+        public void SinglePhaseCommit(SinglePhaseEnlistment singlePhaseEnlistment)
+        {
+            Calls.Add("single-phase commit");
+
+            if (Refuse)
+            {
+                singlePhaseEnlistment.Aborted(new InvalidOperationException("refused"));
+                return;
+            }
+
+            singlePhaseEnlistment.Committed();
+        }
+
+        public void Prepare(PreparingEnlistment preparingEnlistment)
+        {
+            Calls.Add("prepare");
+            preparingEnlistment.ForceRollback(new InvalidOperationException("prepared transactions are disabled"));
+        }
+
+        public void Commit(Enlistment enlistment)
+        {
+            Calls.Add("commit");
+            enlistment.Done();
+        }
+
+        public void Rollback(Enlistment enlistment)
+        {
+            Calls.Add("rollback");
+            enlistment.Done();
+        }
+
+        public void InDoubt(Enlistment enlistment)
+        {
+            Calls.Add("in doubt");
+            enlistment.Done();
+        }
     }
 }

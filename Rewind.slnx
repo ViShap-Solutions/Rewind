@@ -10,6 +10,7 @@
     <Project Path="tests/ViShap.Rewind.Core.Tests/ViShap.Rewind.Core.Tests.csproj" />
     <Project Path="tests/ViShap.Rewind.Generator.Tests/ViShap.Rewind.Generator.Tests.csproj" />
     <Project Path="tests/ViShap.Rewind.AotConsumer/ViShap.Rewind.AotConsumer.csproj" />
+    <Project Path="tests/ViShap.Rewind.Integration.Tests/ViShap.Rewind.Integration.Tests.csproj" />
   </Folder>
   <Folder Name="/benchmarks/">
     <Project Path="benchmarks/ViShap.Rewind.Benchmarks/ViShap.Rewind.Benchmarks.csproj" />

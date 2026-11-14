@@ -43,6 +43,8 @@ internal static class ReportWriter
             "Contract §13: `RunAsync` with a block that completes at once and one that yields, against the synchronous `Run`."),
         ("W9, W10", ["CellWriteBenchmarks"], "W9, W10 — a tracked write under the default job",
             "The cells PERF-01, PERF-02 and W10 are recorded against, measured under BenchmarkDotNet's default job so they stay comparable."),
+        ("W15", ["NotificationBenchmarks"], "W15 — notifications with a subscriber",
+            "Contract §8.6, §10.2: a list changed with no scope against an `ObservableCollection<T>` (the floor), a list changed in a committed scope (one reset), a notifying property committed and rolled back (one notification each)."),
         ("W11", ["ScopeSizeScalingBenchmarks"], "W11 — scope size",
             "The curve of W2 and W3 over N = 1 … 4096 distinct writes."),
         ("W12", ["DepthScalingBenchmarks"], "W12 — nesting depth",

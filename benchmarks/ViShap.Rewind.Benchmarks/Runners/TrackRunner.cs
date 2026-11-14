@@ -29,7 +29,7 @@ internal static class TrackRunner
     /// <summary>Every timed suite of Track A, in the order a run measures them. The order is part of the record.</summary>
     private static readonly (string Stage, Type Suite)[] TrackA =
     [
-        // A1 — the mechanism record, W1–W10.
+        // A1 — the mechanism record, W1–W10, W15.
         ("a1", typeof(NoScopeWriteBenchmarks)),
         ("a1", typeof(ScopeWriteBenchmarks)),
         ("a1", typeof(NestingBenchmarks)),
@@ -40,6 +40,7 @@ internal static class TrackRunner
         ("a1", typeof(PropertyBenchmarks)),
         ("a1", typeof(AsyncScopeBenchmarks)),
         ("a1", typeof(CellWriteBenchmarks)),
+        ("a1", typeof(NotificationBenchmarks)),
 
         // A2 — the scaling curves, W11–W13.
         ("a2", typeof(ScopeSizeScalingBenchmarks)),

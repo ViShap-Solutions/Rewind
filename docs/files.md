@@ -99,6 +99,13 @@ file as it was before the scope; it is safe to delete once you no longer need it
 The directory must allow creating and renaming files. Rollback does not isolate: other processes see a change from the
 call on, and see it go back on rollback.
 
+## Symbolic links
+
+A path that is a symbolic link is written through, as `File.WriteAllText` writes through it: `WriteAllBytes`,
+`WriteAllText`, `Write` and `Copy` replace the file the link finally points to, make their side files beside that file,
+and leave the link a link — a configuration file mounted through a link keeps working. `Delete` deletes the link
+itself, as `File.Delete` does, and a rollback puts the link back.
+
 ## Platforms
 
 The guarantees are those of renaming a file within one directory.
