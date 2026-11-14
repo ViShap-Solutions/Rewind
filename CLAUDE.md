@@ -96,10 +96,14 @@ Every file under `internal/` states its class at its head (`internal/README.md`)
 - `internal/performance/` — *plan.* Optimization proposals from measurements, for the owner to decide.
 - `internal/Development-Workflow.md` — *operational* (Russian). Never edited by an agent unless the owner asks.
 
-Current state: **B0–B13a closed, `v1.0.0-rc.2` published (targets `net8.0`, `net9.0`, `net10.0`, D-51); B13b
-(real-world defects: single-phase commit D-53; notifications after rollback and of collections D-54; RewindFile
-through symbolic links) gate holds —
-then the owner tags `v1.0.0-rc.3`.** Every
+Current state: **B0–B13b closed; `v1.0.0-rc.3` published (`a4bbe62`, targets `net8.0`, `net9.0`, `net10.0`); its
+acceptance gate in `D:\Rider\RewindTest` passed 2026-11-14, every step. Next: the owner walks
+`RewindTest/RELEASE-CHECKLIST.md` §2 by hand (IDE squiggles and light bulb, stepping into `Rewind.Run` through Source
+Link, the nuget.org pages), then releases `v1.0.0` (`release/v1.0.0` → `main`, tag on `main`), reruns the gate with
+`-Version 1.0.0`, and runs `--track A` and `--track B` on the tag (D-52). Open owner decision before that baseline:
+whether the publication job runs three launches per cell (`Benchmark-Plan.md` §8, "Finding for the publication
+job").** B13b (D-53, D-54) fixed what acceptance against real PostgreSQL and SQL Server, EF Core and an Avalonia UI
+exposed; those tests now live in `tests/ViShap.Rewind.Integration.Tests` (Docker; CI runs them on Linux). Every
 v1 section of the contract is Built and the §18 checklist is complete (2026-11-13, `cea304d`). Core holds the engine of
 contract §4–§7, the collections of §8, `ChangeSet`/notifications/`RewindHistory` of §10, joins an ambient
 `System.Transactions` transaction (§11), binds file operations to scopes with `RewindFile` (§12), runs asynchronous
@@ -108,7 +112,8 @@ the seam `ViShap.Rewind.Contracts`. The generator implements `[Rewindable]` part
 notifications; analyzers report RWD0001–RWD0006 and RWD1001–RWD1006. The Testing package holds `RewindVerify` (§14).
 INV-01…INV-13 are pinned; the v1 audit is closed (`internal/audit/Audit-v1.0.0.md`); Track A has two runs on the old
 harness; the benchmark harness (Track A and Track B) is rebuilt and its first publication runs are on the tag `v1.0.0`
-after its release (D-52). CI builds and tests on Linux and Windows. After `rc.3`: only fixes until `v1.0.0`.
+after its release (D-52). CI builds and tests on Linux and Windows. After `rc.3`: only fixes until `v1.0.0`; each fix
+is a `bugfix/` branch, a new `rc.N`, and the `RewindTest` gate again.
 
 ## Projects
 
