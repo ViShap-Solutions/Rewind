@@ -2,9 +2,16 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
+    <TargetFrameworks>net10.0;net8.0</TargetFrameworks>
+    <TargetFramework />
     <RootNamespace>ViShap.Rewind.AotConsumer</RootNamespace>
     <PublishAot>true</PublishAot>
     <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <!-- A net8.0 consumer compiles generated code at the lowest language version partial properties need. -->
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net8.0'">
+    <LangVersion>13</LangVersion>
   </PropertyGroup>
 
   <ItemGroup>

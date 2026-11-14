@@ -20,7 +20,11 @@ internal sealed class TransactionParticipant : IEnlistmentNotification
 {
     private static readonly ConditionalWeakTable<Transaction, TransactionParticipant> s_participants = new();
 
+#if NET9_0_OR_GREATER
     private readonly Lock _gate = new();
+#else
+    private readonly object _gate = new();
+#endif
     private readonly List<PendingScope> _pending = [];
     private readonly int _joinedOn = Environment.CurrentManagedThreadId;
 

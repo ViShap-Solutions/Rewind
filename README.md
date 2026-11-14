@@ -59,7 +59,8 @@ A class marked `[Rewindable]` declares its tracked properties as `partial`; the 
 single value outside a class there is `RewindCell<T>`, and `RewindList<T>`, `RewindDictionary<TKey, TValue>` and
 `RewindSet<T>` are tracked collections.
 
-Targets .NET 10.
+Targets .NET 8, .NET 9 and .NET 10, built with the .NET 10 SDK, whose compiler runs the generator. `[Rewindable]`
+types need C# 13, the default from .NET 9; a .NET 8 project sets `<LangVersion>13</LangVersion>` or later.
 
 ## What it does not do
 

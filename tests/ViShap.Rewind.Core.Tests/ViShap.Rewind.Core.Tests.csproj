@@ -1,6 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <TargetFrameworks>$(RewindTargetFrameworks)</TargetFrameworks>
+    <TargetFramework />
     <RootNamespace>ViShap.Rewind.Tests</RootNamespace>
     <IsTestProject>true</IsTestProject>
   </PropertyGroup>
@@ -10,6 +12,11 @@
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+  </ItemGroup>
+
+  <!-- The generator runs in-process for the documentation examples and is built against the version Roslyn brings. -->
+  <ItemGroup Condition="'$(TargetFramework)' == 'net8.0'">
+    <PackageReference Include="System.Collections.Immutable" />
   </ItemGroup>
 
   <ItemGroup>

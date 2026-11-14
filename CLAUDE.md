@@ -4,7 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Commands
 
-Targets .NET 10 (`net10.0`), SDK 10.0.x (`global.json`). Package versions are central (`Directory.Packages.props`).
+Core, Testing and the meta-package target `net8.0`, `net9.0` and `net10.0` (`RewindTargetFrameworks` in
+`Directory.Build.props`, D-51); the generator `netstandard2.0`; everything else `net10.0`. SDK 10.0.x (`global.json`);
+the .NET 8 and 9 runtimes must be installed to run the tests under them. Package versions are central
+(`Directory.Packages.props`; the benchmarks' competitors in `benchmarks/Directory.Packages.props`).
 
 ```powershell
 dotnet restore Rewind.slnx
@@ -16,18 +19,41 @@ dotnet test tests/ViShap.Rewind.Generator.Tests/ViShap.Rewind.Generator.Tests.cs
 dotnet test tests/ViShap.Rewind.Core.Tests/ViShap.Rewind.Core.Tests.csproj --filter "FullyQualifiedName~Run_BlockThrows_RestoresCellAndRethrowsOriginal"
 dotnet test tests/ViShap.Rewind.Core.Tests/ViShap.Rewind.Core.Tests.csproj --filter "FullyQualifiedName~NestingTests"
 dotnet test tests/ViShap.Rewind.Core.Tests/ViShap.Rewind.Core.Tests.csproj --filter "FullyQualifiedName~.Effects."
+dotnet test tests/ViShap.Rewind.Core.Tests/ViShap.Rewind.Core.Tests.csproj --framework net8.0   # one target framework
 
 # Packages
 dotnet pack Rewind.slnx --configuration Release --output artifacts -p:Version=0.0.0-local
 
-# Benchmarks (BenchmarkDotNet; Release only)
-dotnet run --project benchmarks/ViShap.Rewind.Benchmarks --configuration Release -- --filter '*'
+# Benchmarks (Release only; usage in benchmarks/ViShap.Rewind.Benchmarks/README.md, plan in internal/Benchmark-Plan.md)
+$bench = "benchmarks/ViShap.Rewind.Benchmarks"
+dotnet run --project $bench -c Release -- --track A                 # Rewind alone: verify, every suite, cold start, soak, report
+dotnet run --project $bench -c Release -- --track B                 # Rewind beside the alternatives (tier T1)
+dotnet run --project $bench -c Release -- --track A --short         # the whole pipeline in minutes; never a baseline
+dotnet run --project $bench -c Release -- --track A --filter a2     # stages a1, a2, a3, b1 or a glob over suite names
+dotnet run --project $bench -c Release -- --track A --list          # what would run and where it would go; measures nothing
+dotnet run --project $bench -c Release -- --verify                  # Track A cases and Track B probes and pairs, no timing
+dotnet run --project $bench -c Release -- --verify --market         # Track B probes, tiers and pairs only
+dotnet run --project $bench -c Release -- --report <run directory>  # regenerate report and charts; rebuild an interrupted run
+dotnet run --project $bench -c Release -- --compare <baseline> <run> # delta with 99.9 % margins: comparison-*.md/.csv/.svg
+dotnet run --project $bench -c Release -- --cold                    # cold start alone (--launches N)
+dotnet run --project $bench -c Release -- --soak 5                  # sustained load alone, minutes
+dotnet run --project $bench -c Release -- --manifest                # the environment record
+dotnet run --project $bench -c Release -- --smoke                   # every benchmark once
+dotnet run --project $bench -c Release -- --filter '*Nesting*'      # BenchmarkDotNet's switcher, publication job
 ```
 
+A track run on a commit with its own tag, under the publication job and with no filter, is a baseline: it is moved to
+`benchmarks/ViShap.Rewind.Benchmarks/Baselines/<tag>/` (Track B: `<tag>/market/`) and committed; anything else is a
+measurement under `Measurements/`, git-ignored. Track A and Track B are run on the tag `v1.0.0` after its release, not
+on pre-release tags (D-52). `--as <tag>` files a later commit under a tag whose `src/` it carries in code;
+`--allow-dirty` lets a baseline be measured over uncommitted changes and records it. Ctrl+C or a `STOP` file in the
+run directory ends a run after the current suite.
+
 CI (`.github/workflows/ci.yml`, on every PR to and push on `main`, `release/**`, `support/**`, and by hand) has two
-jobs: restore → build → both test projects (`.trx` uploaded) → pack, on Linux and on Windows; and Native AOT, which
-publishes `tests/ViShap.Rewind.AotConsumer` with native AOT on Linux, fails on any `IL` warning, and diffs its output with the
-same program under the JIT. CD (`cd.yml`) fires on `v*` tags: a stable `vX.Y.Z` must point exactly at `origin/main`
+jobs: restore → build → both test projects (`.trx` uploaded; Core's tests under .NET 8, 9 and 10) → pack, on Linux
+and on Windows; and Native AOT, which publishes `tests/ViShap.Rewind.AotConsumer` with native AOT on Linux for
+`net10.0` and for `net8.0` (C# 13), fails on any `IL` warning, and diffs each output with the same program under the
+JIT and the two with each other. CD (`cd.yml`) fires on `v*` tags: a stable `vX.Y.Z` must point exactly at `origin/main`
 HEAD; a pre-release `vX.Y.Z-alpha.N`, `-beta.N` or `-rc.N` must point at a commit on an origin `release/*` branch
 and is refused once `vX.Y.Z` exists. Its first job builds, tests and packs Core, Generator and the meta-package with
 `-p:Version=<tag minus v>`, then checks the three packages and Core's `.snupkg`, each nuspec's version, icon and
@@ -70,16 +96,18 @@ Every file under `internal/` states its class at its head (`internal/README.md`)
 - `internal/performance/` — *plan.* Optimization proposals from measurements, for the owner to decide.
 - `internal/Development-Workflow.md` — *operational* (Russian). Never edited by an agent unless the owner asks.
 
-Current state: **B0–B12a closed, `v1.0.0-beta.1` published; B13 gate holds — the owner tags `v1.0.0-rc.1`.** Every
+Current state: **B0–B13 closed, `v1.0.0-rc.1` published; B13a (target frameworks `net8.0`, `net9.0`, D-51) gate
+holds — then the owner tags `v1.0.0-rc.2`.** Every
 v1 section of the contract is Built and the §18 checklist is complete (2026-11-13, `cea304d`). Core holds the engine of
 contract §4–§7, the collections of §8, `ChangeSet`/notifications/`RewindHistory` of §10, joins an ambient
 `System.Transactions` transaction (§11), binds file operations to scopes with `RewindFile` (§12), runs asynchronous
 blocks with `Rewind.RunAsync` (§13), and reports metrics and traces under `RewindDiagnostics` (§15); the attributes and
 the seam `ViShap.Rewind.Contracts`. The generator implements `[Rewindable]` partial properties and their
 notifications; analyzers report RWD0001–RWD0006 and RWD1001–RWD1006. The Testing package holds `RewindVerify` (§14).
-INV-01…INV-13 are pinned; the v1 audit is closed (`internal/audit/Audit-v1.0.0.md`); Track A has two runs. CI builds
-and tests on Linux and Windows. After `rc.1`: only fixes until `v1.0.0`, then Track B.
-
+INV-01…INV-13 are pinned; the v1 audit is closed (`internal/audit/Audit-v1.0.0.md`); Track A has two runs on the old
+harness; the benchmark harness (Track A and Track B) is rebuilt and its first publication runs are on the tag `v1.0.0`
+after its release (D-52). CI builds and tests on Linux and Windows. After `rc.2`: only fixes until `v1.0.0`.
+
 ## Projects
 
 - `ViShap.Rewind.Core` — everything that runs. No package dependency. `InternalsVisibleTo` the core tests, the
@@ -96,7 +124,12 @@ and tests on Linux and Windows. After `rc.1`: only fixes until `v1.0.0`, then Tr
 - `ViShap.Rewind.Testing` — `RewindVerify` for the consumer's tests (contract §14). Depends on Core; not in the
   meta-package; packed and published by CD. Tested in `Core.Tests/Verify/`, which references it.
 - `ViShap.Rewind` — meta-package: references Core and Generator, ships no code.
-- `tests/ViShap.Rewind.AotConsumer` — a console program over Core and the generator, run by the Native AOT job of CI.
+- `tests/ViShap.Rewind.AotConsumer` — a console program over Core and the generator, run by the Native AOT job of CI;
+  `net10.0` and `net8.0` at C# 13, the lowest language version `[Rewindable]` needs.
+- `benchmarks/ViShap.Rewind.Benchmarks` — the benchmark harness: Track A suites in `Suites/`, Track B adapters and
+  suites in `Market/`, runners, reports and charts; read-only over `src/` (`rewind_bencher`).
+- Conditional compilation in Core is only for runtime differences under `net8.0` (`NET9_0_OR_GREATER`): the lock type
+  of `TransactionParticipant` and the exception event of `Telemetry`.
 
 **Namespaces do not follow folders or assemblies.** The whole consumer API sits in the bare `ViShap.Rewind`
 namespace so consumers need one `using` — including what lives in `Exceptions/` and, later, collections and

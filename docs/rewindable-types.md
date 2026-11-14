@@ -3,7 +3,8 @@
 Marking a class `[Rewindable]` lets its properties be tracked state with ordinary property syntax. Declare each
 property to track as `partial`; the source generator, which comes with the `ViShap.Rewind` package, writes its
 implementation. A write made while a scope is open is undone when that scope rolls back — exactly as a write to a
-`RewindCell<T>`.
+`RewindCell<T>`. Partial properties need C# 13, the default from .NET 9; a project that targets .NET 8 sets
+`<LangVersion>13</LangVersion>` or later ([getting-started.md](getting-started.md#install)).
 
 ```csharp
 using ViShap.Rewind;

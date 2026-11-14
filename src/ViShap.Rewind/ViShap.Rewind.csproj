@@ -1,6 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <TargetFrameworks>$(RewindTargetFrameworks)</TargetFrameworks>
+    <TargetFramework />
     <IsPackable>true</IsPackable>
     <PackageId>ViShap.Rewind</PackageId>
     <Description>Atomic in-memory state change for .NET: a block of code either keeps all its changes or none, with effects bound to commit and rollback. Brings ViShap.Rewind.Core and its source generator.</Description>
@@ -18,6 +20,14 @@
   <ItemGroup>
     <ProjectReference Include="..\ViShap.Rewind.Core\ViShap.Rewind.Core.csproj" />
     <ProjectReference Include="..\ViShap.Rewind.Generator\ViShap.Rewind.Generator.csproj" PrivateAssets="none" />
+  </ItemGroup>
+
+  <!--
+    The generator is built against the System.Collections.Immutable its Roslyn brings, newer than net8.0's. The
+    reference only aligns this project's build; it is private, so the package does not depend on it.
+  -->
+  <ItemGroup Condition="'$(TargetFramework)' == 'net8.0'">
+    <PackageReference Include="System.Collections.Immutable" PrivateAssets="all" />
   </ItemGroup>
 
 </Project>
