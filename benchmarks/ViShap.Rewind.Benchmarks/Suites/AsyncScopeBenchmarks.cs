@@ -7,7 +7,6 @@ namespace ViShap.Rewind.Benchmarks.Suites;
 /// yields, committing one write, against the synchronous <c>Run</c>. The synchronous path before and after B9 is the
 /// back-to-back measurement of <c>CellWriteBenchmarks</c> recorded with PERF-01.
 /// </summary>
-[Config(typeof(TrackAConfig))]
 public class AsyncScopeBenchmarks
 {
     private static readonly RewindCell<int> s_cell = new(0);

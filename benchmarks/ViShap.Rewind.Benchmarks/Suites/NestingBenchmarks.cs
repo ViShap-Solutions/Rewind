@@ -6,7 +6,6 @@ namespace ViShap.Rewind.Benchmarks.Suites;
 /// W4 — scopes nested D deep, one write at each level to its own cell; every level commits, or the innermost rolls
 /// back and every level above commits, or every level commits and the outermost rolls back.
 /// </summary>
-[Config(typeof(TrackAConfig))]
 public class NestingBenchmarks
 {
     private RewindCell<int>[] _cells = [];

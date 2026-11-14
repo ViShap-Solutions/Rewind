@@ -1,0 +1,16 @@
+<Project>
+
+  <!--
+    The repository's central versions, and the packages only the benchmarks use: the competitors of Track B.
+    Each is pinned to its latest stable version on nuget.org; the manifest of every run records the pins and
+    whether nuget.org lists a newer one.
+  -->
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Packages.props', '$(MSBuildThisFileDirectory)..'))" />
+
+  <ItemGroup>
+    <PackageVersion Include="Shielded" Version="4.4.9" />
+    <PackageVersion Include="STMSharp" Version="3.0.0" />
+    <PackageVersion Include="LanguageExt.Core" Version="4.4.9" />
+  </ItemGroup>
+
+</Project>

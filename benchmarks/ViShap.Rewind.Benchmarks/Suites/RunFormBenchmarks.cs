@@ -6,7 +6,6 @@ namespace ViShap.Rewind.Benchmarks.Suites;
 /// W5 — one write in a committed scope through each form of opening it: a lambda, a lambda with state, a struct
 /// operation, and <c>Begin</c>/<c>Commit</c>. The lambdas are static, so no form pays for a closure the caller chose.
 /// </summary>
-[Config(typeof(TrackAConfig))]
 public class RunFormBenchmarks
 {
     private static readonly RewindCell<int> s_cell = new(0);

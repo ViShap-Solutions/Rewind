@@ -6,7 +6,6 @@ namespace ViShap.Rewind.Benchmarks.Suites;
 /// W8 — a write to a generated <c>[Rewindable]</c> property, against a <see cref="RewindCell{T}"/> and a plain
 /// property; with no scope, and in a committed scope.
 /// </summary>
-[Config(typeof(TrackAConfig))]
 public class PropertyBenchmarks
 {
     private readonly Account _account = new();
