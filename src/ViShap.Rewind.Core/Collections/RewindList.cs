@@ -1,4 +1,6 @@
 using System.Collections;
+using System.Collections.Specialized;
+using System.ComponentModel;
 
 namespace ViShap.Rewind;
 
@@ -11,14 +13,53 @@ namespace ViShap.Rewind;
 /// element are not undone.
 /// </typeparam>
 /// <remarks>
+/// <para>
 /// A mutation with no scope open is a plain mutation. A list is not safe for concurrent mutation from several threads.
 /// Mutating the list while enumerating it, including by a rollback, makes the enumeration throw
 /// <see cref="InvalidOperationException"/>.
+/// </para>
+/// <para>
+/// The list notifies like an observable collection, so a UI bound to it follows it. A mutation with no scope open
+/// raises <see cref="CollectionChanged"/> at once with the element and its position; while a scope is open nothing is
+/// raised, and once the outermost scope commits or rolls back a list it changed raises one reset. Each notification is
+/// followed by <see cref="PropertyChanged"/> for <c>Count</c> when it changed and for the indexer, <c>Item[]</c>.
+/// </para>
 /// </remarks>
-public sealed class RewindList<T> : IList<T>, IReadOnlyList<T>
+public sealed class RewindList<T> : IList<T>, IReadOnlyList<T>, IList, INotifyCollectionChanged, INotifyPropertyChanged, ICollectionNotifier
 {
     private List<T> _items;
     private int _version;
+
+    /// <summary>
+    /// Occurs when the list changed: at once for a mutation made with no scope open, and as one reset once the outermost
+    /// scope that changed the list commits or rolls back.
+    /// </summary>
+    public event NotifyCollectionChangedEventHandler? CollectionChanged;
+
+    /// <summary>Occurs after <see cref="CollectionChanged"/>, for <c>Count</c> when it changed and for the indexer, <c>Item[]</c>.</summary>
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    bool ICollectionNotifier.Observed => Observed;
+
+    /// <summary>Records <paramref name="entry"/> in <paramref name="scope"/>, and tells its journal there is a notification to raise when anything subscribes.</summary>
+    private void Record(RewindScope scope, JournalEntry entry)
+    {
+        scope.Journal.Add(entry);
+        if (Observed)
+        {
+            scope.Journal.MarkNotifying();
+        }
+    }
+
+    private void RecordInCurrentScope(JournalEntry entry)
+    {
+        if (ScopeContext.Current is { } scope)
+        {
+            Record(scope, entry);
+        }
+    }
+
+    private bool Observed => CollectionChanged is not null || PropertyChanged is not null;
 
     /// <summary>Creates an empty list.</summary>
     public RewindList()
@@ -52,7 +93,14 @@ public sealed class RewindList<T> : IList<T>, IReadOnlyList<T>
             var previous = _items[index];
             _items[index] = value;
             _version++;
-            ScopeContext.Current?.Journal.Add(new SetEntry(this, index, previous));
+            if (ScopeContext.Current is { } scope)
+            {
+                Record(scope, new SetEntry(this, index, previous));
+            }
+            else if (CollectionChanged is not null || PropertyChanged is not null)
+            {
+                Raise(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Replace, value, previous, index), countChanged: false);
+            }
         }
     }
 
@@ -62,7 +110,14 @@ public sealed class RewindList<T> : IList<T>, IReadOnlyList<T>
     {
         _items.Add(item);
         _version++;
-        ScopeContext.Current?.Journal.Add(new RemoveRangeEntry(this, _items.Count - 1, 1));
+        if (ScopeContext.Current is { } scope)
+        {
+            Record(scope, new RemoveRangeEntry(this, _items.Count - 1, 1));
+        }
+        else if (CollectionChanged is not null || PropertyChanged is not null)
+        {
+            Raise(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, item, _items.Count - 1), countChanged: true);
+        }
     }
 
     /// <summary>Adds the elements of <paramref name="collection"/> at the end, in order. A rollback removes them with one entry.</summary>
@@ -80,7 +135,15 @@ public sealed class RewindList<T> : IList<T>, IReadOnlyList<T>
         }
 
         _version++;
-        ScopeContext.Current?.Journal.Add(new RemoveRangeEntry(this, start, added));
+        if (ScopeContext.Current is { } scope)
+        {
+            Record(scope, new RemoveRangeEntry(this, start, added));
+        }
+        else if (CollectionChanged is not null || PropertyChanged is not null)
+        {
+            // Several elements are notified as a reset: list views of the common UI frameworks refuse range actions.
+            Raise(added == 1 ? new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, _items[start], start) : CollectionNotifications.Reset, countChanged: true);
+        }
     }
 
     /// <summary>Inserts <paramref name="item"/> at <paramref name="index"/>.</summary>
@@ -91,7 +154,14 @@ public sealed class RewindList<T> : IList<T>, IReadOnlyList<T>
     {
         _items.Insert(index, item);
         _version++;
-        ScopeContext.Current?.Journal.Add(new RemoveRangeEntry(this, index, 1));
+        if (ScopeContext.Current is { } scope)
+        {
+            Record(scope, new RemoveRangeEntry(this, index, 1));
+        }
+        else if (CollectionChanged is not null || PropertyChanged is not null)
+        {
+            Raise(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, item, index), countChanged: true);
+        }
     }
 
     /// <summary>Removes the element at <paramref name="index"/>.</summary>
@@ -102,7 +172,14 @@ public sealed class RewindList<T> : IList<T>, IReadOnlyList<T>
         var removed = _items[index];
         _items.RemoveAt(index);
         _version++;
-        ScopeContext.Current?.Journal.Add(new InsertEntry(this, index, removed));
+        if (ScopeContext.Current is { } scope)
+        {
+            Record(scope, new InsertEntry(this, index, removed));
+        }
+        else if (CollectionChanged is not null || PropertyChanged is not null)
+        {
+            Raise(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, removed, index), countChanged: true);
+        }
     }
 
     /// <summary>Removes the first occurrence of <paramref name="item"/>.</summary>
@@ -136,11 +213,72 @@ public sealed class RewindList<T> : IList<T>, IReadOnlyList<T>
         if (scope is null)
         {
             _items.Clear();
+            if (CollectionChanged is not null || PropertyChanged is not null)
+            {
+                Raise(CollectionNotifications.Reset, countChanged: true);
+            }
+
             return;
         }
 
-        scope.Journal.Add(new RestoreEntry(this, _items));
+        Record(scope, new RestoreEntry(this, _items));
         _items = [];
+    }
+
+    void ICollectionNotifier.NotifyReset() => Raise(CollectionNotifications.Reset, countChanged: true);
+
+    bool IList.IsFixedSize => false;
+
+    bool IList.IsReadOnly => false;
+
+    bool ICollection.IsSynchronized => false;
+
+    object ICollection.SyncRoot => this;
+
+    object? IList.this[int index]
+    {
+        get => _items[index];
+        set => this[index] = Cast(value);
+    }
+
+    int IList.Add(object? value)
+    {
+        Add(Cast(value));
+        return _items.Count - 1;
+    }
+
+    bool IList.Contains(object? value) => IsCompatible(value) && Contains((T)value!);
+
+    int IList.IndexOf(object? value) => IsCompatible(value) ? IndexOf((T)value!) : -1;
+
+    void IList.Insert(int index, object? value) => Insert(index, Cast(value));
+
+    void IList.Remove(object? value)
+    {
+        if (IsCompatible(value))
+        {
+            Remove((T)value!);
+        }
+    }
+
+    void ICollection.CopyTo(Array array, int index) => ((ICollection)_items).CopyTo(array, index);
+
+    /// <summary>Whether <paramref name="value"/> can be an element: a <typeparamref name="T"/>, or null where T allows it.</summary>
+    private static bool IsCompatible(object? value) => value is T || (value is null && default(T) is null);
+
+    private static T Cast(object? value) => IsCompatible(value)
+        ? (T)value!
+        : throw new ArgumentException($"The value \"{value}\" is not of type \"{typeof(T)}\" and cannot be used in this generic collection.", nameof(value));
+
+    private void Raise(NotifyCollectionChangedEventArgs change, bool countChanged)
+    {
+        CollectionChanged?.Invoke(this, change);
+        if (countChanged)
+        {
+            PropertyChanged?.Invoke(this, CollectionNotifications.Count);
+        }
+
+        PropertyChanged?.Invoke(this, CollectionNotifications.Indexer);
     }
 
     /// <summary>Returns whether the list holds <paramref name="item"/>.</summary>
@@ -252,7 +390,7 @@ public sealed class RewindList<T> : IList<T>, IReadOnlyList<T>
             var items = list._items.GetRange(index, count);
             list._items.RemoveRange(index, count);
             list._version++;
-            ScopeContext.Current?.Journal.Add(new InsertRangeEntry(list, index, items));
+            list.RecordInCurrentScope(new InsertRangeEntry(list, index, items));
         }
     }
 
@@ -279,7 +417,7 @@ public sealed class RewindList<T> : IList<T>, IReadOnlyList<T>
         {
             list._items.InsertRange(index, items);
             list._version++;
-            ScopeContext.Current?.Journal.Add(new RemoveRangeEntry(list, index, items.Count));
+            list.RecordInCurrentScope(new RemoveRangeEntry(list, index, items.Count));
         }
     }
 
@@ -293,7 +431,7 @@ public sealed class RewindList<T> : IList<T>, IReadOnlyList<T>
 
         public override void UndoRecorded()
         {
-            ScopeContext.Current?.Journal.Add(new RestoreEntry(list, list._items));
+            list.RecordInCurrentScope(new RestoreEntry(list, list._items));
             list._items = items;
             list._version++;
         }

@@ -7,16 +7,17 @@ namespace ViShap.Rewind.Engine;
 internal sealed record PendingScope(Journal Journal, List<Action<ChangeSet>>? Observers, List<Action>? AfterCommit, List<Action>? AfterRollback);
 
 /// <summary>
-/// The volatile resource manager through which the scopes of one transaction follow its outcome. There is one per
-/// transaction, so the scopes committed in it are rolled back together, newest first.
+/// What the scopes of one transaction follow its outcome through. There is one per transaction, so the scopes committed
+/// in it are rolled back together, newest first.
 /// </summary>
 /// <remarks>
-/// Its notifications only acknowledge the outcome; the pending scopes are completed when the transaction raises
-/// <see cref="Transaction.TransactionCompleted"/>, once every participant has its outcome. A failure is thrown from
-/// there only on the thread where the first scope joined — the call that completes a local transaction; on any other
-/// thread it is left to the diagnostics, since an exception there would reach no caller.
+/// It is not a resource manager: it enlists in nothing, so a transaction whose only resource is a single connection
+/// still commits that connection in one phase. It subscribes to <see cref="Transaction.TransactionCompleted"/>, raised
+/// once every participant has its outcome, and completes the pending scopes there. A failure is thrown from there only
+/// on the thread where the first scope joined — the call that completes a local transaction; on any other thread it is
+/// left to the diagnostics, since an exception there would reach no caller.
 /// </remarks>
-internal sealed class TransactionParticipant : IEnlistmentNotification
+internal sealed class TransactionParticipant
 {
     private static readonly ConditionalWeakTable<Transaction, TransactionParticipant> s_participants = new();
 
@@ -28,13 +29,12 @@ internal sealed class TransactionParticipant : IEnlistmentNotification
     private readonly List<PendingScope> _pending = [];
     private readonly int _joinedOn = Environment.CurrentManagedThreadId;
 
-    /// <summary>Adds <paramref name="scope"/> to the participant of <paramref name="transaction"/>, enlisting one when it is the first.</summary>
+    /// <summary>Adds <paramref name="scope"/> to the participant of <paramref name="transaction"/>, creating one when it is the first.</summary>
     public static void Join(Transaction transaction, PendingScope scope)
     {
         var participant = s_participants.GetValue(transaction, static joined =>
         {
             var created = new TransactionParticipant();
-            joined.EnlistVolatile(created, EnlistmentOptions.None);
             joined.TransactionCompleted += created.OnTransactionCompleted;
             return created;
         });
@@ -48,18 +48,6 @@ internal sealed class TransactionParticipant : IEnlistmentNotification
     /// <summary>Returns the participant of <paramref name="transaction"/>, or <see langword="null"/> when no scope joined it.</summary>
     public static TransactionParticipant? Of(Transaction transaction) =>
         s_participants.TryGetValue(transaction, out var participant) ? participant : null;
-
-    /// <inheritdoc />
-    public void Prepare(PreparingEnlistment preparingEnlistment) => preparingEnlistment.Prepared();
-
-    /// <inheritdoc />
-    public void Commit(Enlistment enlistment) => enlistment.Done();
-
-    /// <inheritdoc />
-    public void Rollback(Enlistment enlistment) => enlistment.Done();
-
-    /// <inheritdoc />
-    public void InDoubt(Enlistment enlistment) => enlistment.Done();
 
     /// <summary>
     /// Completes the pending scopes with the transaction's outcome, and throws their failures when this is the thread where

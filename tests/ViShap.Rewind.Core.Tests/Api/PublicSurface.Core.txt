@@ -37,11 +37,13 @@ sealed class RewindCompensationException : RewindException
 sealed class RewindEffectException : RewindException
     RewindEffectException(IReadOnlyList<Exception> failures)
     IReadOnlyList<Exception> Failures { get; }
-sealed class RewindList<T> : IList<T>, IReadOnlyList<T>
+sealed class RewindList<T> : IList, IList<T>, INotifyCollectionChanged, INotifyPropertyChanged, IReadOnlyList<T>
     RewindList()
     RewindList(IEnumerable<T> collection)
     int Count { get; }
     T this[int index] { get; set; }
+    event NotifyCollectionChangedEventHandler? CollectionChanged
+    event PropertyChangedEventHandler? PropertyChanged
     void Add(T item)
     void AddRange(IEnumerable<T> collection)
     void Insert(int index, T item)
@@ -56,7 +58,7 @@ struct RewindList<T>.Enumerator : IEnumerator<T>
     T Current { get; }
     bool MoveNext()
     void Dispose()
-sealed class RewindDictionary<TKey, TValue> : IDictionary<TKey, TValue>, IReadOnlyDictionary<TKey, TValue>
+sealed class RewindDictionary<TKey, TValue> : IDictionary<TKey, TValue>, INotifyPropertyChanged, IReadOnlyDictionary<TKey, TValue>
     RewindDictionary()
     RewindDictionary(IEqualityComparer<TKey>? comparer)
     RewindDictionary(IEnumerable<KeyValuePair<TKey, TValue>> collection)
@@ -66,6 +68,7 @@ sealed class RewindDictionary<TKey, TValue> : IDictionary<TKey, TValue>, IReadOn
     ICollection<TKey> Keys { get; }
     ICollection<TValue> Values { get; }
     TValue this[TKey key] { get; set; }
+    event PropertyChangedEventHandler? PropertyChanged
     void Add(TKey key, TValue value)
     bool TryAdd(TKey key, TValue value)
     bool Remove(TKey key)
@@ -78,13 +81,14 @@ struct RewindDictionary<TKey, TValue>.Enumerator : IEnumerator<KeyValuePair<TKey
     KeyValuePair<TKey, TValue> Current { get; }
     bool MoveNext()
     void Dispose()
-sealed class RewindSet<T> : IReadOnlySet<T>, ISet<T>
+sealed class RewindSet<T> : INotifyPropertyChanged, IReadOnlySet<T>, ISet<T>
     RewindSet()
     RewindSet(IEqualityComparer<T>? comparer)
     RewindSet(IEnumerable<T> collection)
     RewindSet(IEnumerable<T> collection, IEqualityComparer<T>? comparer)
     IEqualityComparer<T> Comparer { get; }
     int Count { get; }
+    event PropertyChangedEventHandler? PropertyChanged
     bool Add(T item)
     bool Remove(T item)
     void Clear()

@@ -96,8 +96,10 @@ Every file under `internal/` states its class at its head (`internal/README.md`)
 - `internal/performance/` — *plan.* Optimization proposals from measurements, for the owner to decide.
 - `internal/Development-Workflow.md` — *operational* (Russian). Never edited by an agent unless the owner asks.
 
-Current state: **B0–B13 closed, `v1.0.0-rc.1` published; B13a (target frameworks `net8.0`, `net9.0`, D-51) gate
-holds — then the owner tags `v1.0.0-rc.2`.** Every
+Current state: **B0–B13a closed, `v1.0.0-rc.2` published (targets `net8.0`, `net9.0`, `net10.0`, D-51); B13b
+(real-world defects: single-phase commit D-53; notifications after rollback and of collections D-54; RewindFile
+through symbolic links) gate holds —
+then the owner tags `v1.0.0-rc.3`.** Every
 v1 section of the contract is Built and the §18 checklist is complete (2026-11-13, `cea304d`). Core holds the engine of
 contract §4–§7, the collections of §8, `ChangeSet`/notifications/`RewindHistory` of §10, joins an ambient
 `System.Transactions` transaction (§11), binds file operations to scopes with `RewindFile` (§12), runs asynchronous
@@ -106,7 +108,7 @@ the seam `ViShap.Rewind.Contracts`. The generator implements `[Rewindable]` part
 notifications; analyzers report RWD0001–RWD0006 and RWD1001–RWD1006. The Testing package holds `RewindVerify` (§14).
 INV-01…INV-13 are pinned; the v1 audit is closed (`internal/audit/Audit-v1.0.0.md`); Track A has two runs on the old
 harness; the benchmark harness (Track A and Track B) is rebuilt and its first publication runs are on the tag `v1.0.0`
-after its release (D-52). CI builds and tests on Linux and Windows. After `rc.2`: only fixes until `v1.0.0`.
+after its release (D-52). CI builds and tests on Linux and Windows. After `rc.3`: only fixes until `v1.0.0`.
 
 ## Projects
 
@@ -161,16 +163,24 @@ Key mechanics:
 - **Undo log, not redo log.** A write goes in place; the previous value goes to the journal. Reads cost nothing.
 - **Collections record inverses.** Every mutation of a Rewind collection in a scope records its inverse operation;
   `Clear` moves the storage itself into the journal. A version counter invalidates enumerators on mutation and undo.
+  Collections notify (`INotifyCollectionChanged`, D-54): with no scope at once (a list with positions), in a scope one
+  `Reset` when the outermost scope ends; `Engine/CollectionNotifications` (`ICollectionNotifier`) links them to entries.
 - **First write per scope only.** Each scope has a unique epoch; a cell remembers the epoch of the scope that last
   recorded it. A nested scope records the cell again, so it can restore what it saw at its mark.
 - **Savepoints are marks.** Rolling back a child undoes the entries above its mark, newest first; committing a
   child leaves its entries in place and hands its effect lists to the parent.
-- **After the outermost commit:** notifications (`PropertyChanged` of notifying rewindable types), then
-  `OnCommitted` observers with the `ChangeSet` (built only when one is registered), then `AfterCommit` effects.
+- **After the outermost commit:** notifications (`PropertyChanged` of notifying rewindable types, `Reset` of notifying
+  collections), then `OnCommitted` observers with the `ChangeSet` (built only when one is registered), then
+  `AfterCommit` effects.
+- **After a rollback:** `Journal.RollbackTo` keeps every notifying entry whose value it restored; the outermost scope
+  raises them (`Completion.NotifyRestored`) after the state is restored and before `AfterRollback`, and a commit raises
+  those a nested rollback kept along with its own (D-54). A two-way binding that wrote the undone value shows the
+  restored one.
 - **Ambient transactions.** An outermost scope opened in an active `Transaction.Current` joins it: its commit is
-  pending in the transaction's single `TransactionParticipant` (volatile enlistment) until the outcome; its rollback
-  rolls the transaction back. The participant only answers `Done` to the notifications and completes the pending
-  scopes in `TransactionCompleted`, throwing their failures only on the thread where the first scope joined (D-49). `Engine/Completion` runs the end of a commit or rollback for both paths.
+  pending in the transaction's single `TransactionParticipant` until the outcome; its rollback rolls the transaction
+  back. The participant enlists in nothing — it only subscribes to `TransactionCompleted` (D-53), so a single
+  connection still commits in one phase (Npgsql would otherwise `PREPARE TRANSACTION`) — and completes the pending
+  scopes there, throwing their failures only on the thread where the first scope joined (D-49). `Engine/Completion` runs the end of a commit or rollback for both paths.
 - **History replays entries through the recording paths.** `RewindHistory.Undo` undoes a step's entries inside a new
   scope that records them, so that scope's change set is the redo step.
 - **Diagnostics.** `Engine/Telemetry` holds the `Meter`, its five instruments and the `ActivitySource`; each report

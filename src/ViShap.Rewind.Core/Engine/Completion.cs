@@ -64,7 +64,10 @@ internal static class Completion
         return failures;
     }
 
-    /// <summary>Undoes every entry of <paramref name="journal"/>, newest first, then runs <paramref name="afterRollback"/>.</summary>
+    /// <summary>
+    /// Undoes every entry of <paramref name="journal"/>, newest first, raises the notifications of what the undo restored,
+    /// then runs <paramref name="afterRollback"/>.
+    /// </summary>
     public static List<Exception>? Rollback(Journal journal, List<Action>? afterRollback)
     {
         var suspension = ScopeContext.Suspend();
@@ -72,6 +75,7 @@ internal static class Completion
         try
         {
             journal.RollbackTo(0, ref failures);
+            NotifyRestored(journal, ref failures);
             Append(ref failures, RunEffects(afterRollback));
         }
         finally
@@ -80,6 +84,33 @@ internal static class Completion
         }
 
         return failures;
+    }
+
+    /// <summary>
+    /// Raises, once per owner and member, the notifications of what the rollback of an outermost scope restored. Called
+    /// with no current scope, after the state is restored; a handler that throws does not stop the others.
+    /// </summary>
+    public static void NotifyRestored(Journal journal, ref List<Exception>? failures)
+    {
+        var notify = journal.RentNotifications();
+        if (notify is null)
+        {
+            return;
+        }
+
+        foreach (var entry in notify)
+        {
+            try
+            {
+                entry.Notify();
+            }
+            catch (Exception exception)
+            {
+                (failures ??= []).Add(exception);
+            }
+        }
+
+        Journal.ReturnNotifications(notify);
     }
 
     /// <summary>Runs every action of <paramref name="effects"/>; one that throws does not stop the others.</summary>

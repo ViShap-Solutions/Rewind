@@ -11,7 +11,9 @@ Rewind only follows the transaction it finds.
 
 Only an ambient `System.Transactions` transaction: `Transaction.Current`, as a `TransactionScope` sets it. Entity
 Framework Core and ADO.NET providers that support ambient transactions enlist the database connection in it, so the
-database work and the scope commit and roll back together.
+database work and the scope commit and roll back together. Rewind itself enlists nothing: it follows the
+transaction's outcome, so a transaction over one connection commits it in one phase exactly as without Rewind — no
+distributed transaction, and no `PREPARE TRANSACTION` asked of PostgreSQL.
 
 A transaction the database opens on its own is not seen: one opened with `DbContext.Database.BeginTransaction()` or
 `DbConnection.BeginTransaction()`, and the one `SaveChanges` opens when there is no ambient transaction. Rewind has no

@@ -1,4 +1,5 @@
 using System.Collections;
+using System.ComponentModel;
 
 namespace ViShap.Rewind;
 
@@ -15,11 +16,44 @@ namespace ViShap.Rewind;
 /// Mutating the set while enumerating it, including by a rollback, makes the enumeration throw
 /// <see cref="InvalidOperationException"/>. A rollback restores membership; the order in which the set enumerates its
 /// elements is not part of what it restores.
+/// <para>
+/// The set raises <see cref="PropertyChanged"/> for <c>Count</c>: at once for a mutation made with no scope open; once
+/// the outermost scope commits or rolls back for a set a scope changed; nothing while a scope is open. A list for a UI
+/// to show is a <see cref="RewindList{T}"/>, which also raises <c>CollectionChanged</c>.
+/// </para>
 /// </remarks>
-public sealed class RewindSet<T> : ISet<T>, IReadOnlySet<T>
+public sealed class RewindSet<T> : ISet<T>, IReadOnlySet<T>, INotifyPropertyChanged, ICollectionNotifier
 {
     private HashSet<T> _items;
     private int _version;
+
+    /// <summary>
+    /// Occurs when the set changed, for <c>Count</c>: at once for a mutation made with no scope open, and once the
+    /// outermost scope that changed the set commits or rolls back.
+    /// </summary>
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    bool ICollectionNotifier.Observed => Observed;
+
+    /// <summary>Records <paramref name="entry"/> in <paramref name="scope"/>, and tells its journal there is a notification to raise when anything subscribes.</summary>
+    private void Record(RewindScope scope, JournalEntry entry)
+    {
+        scope.Journal.Add(entry);
+        if (Observed)
+        {
+            scope.Journal.MarkNotifying();
+        }
+    }
+
+    private void RecordInCurrentScope(JournalEntry entry)
+    {
+        if (ScopeContext.Current is { } scope)
+        {
+            Record(scope, entry);
+        }
+    }
+
+    private bool Observed => PropertyChanged is not null;
 
     /// <summary>Creates an empty set that compares elements with the default equality comparer.</summary>
     public RewindSet()
@@ -71,7 +105,15 @@ public sealed class RewindSet<T> : ISet<T>, IReadOnlySet<T>
         }
 
         _version++;
-        ScopeContext.Current?.Journal.Add(new RemoveEntry(this, item));
+        if (ScopeContext.Current is { } scope)
+        {
+            Record(scope, new RemoveEntry(this, item));
+        }
+        else if (PropertyChanged is not null)
+        {
+            Raise();
+        }
+
         return true;
     }
 
@@ -86,7 +128,15 @@ public sealed class RewindSet<T> : ISet<T>, IReadOnlySet<T>
         }
 
         _version++;
-        ScopeContext.Current?.Journal.Add(new AddEntry(this, item));
+        if (ScopeContext.Current is { } scope)
+        {
+            Record(scope, new AddEntry(this, item));
+        }
+        else if (PropertyChanged is not null)
+        {
+            Raise();
+        }
+
         return true;
     }
 
@@ -106,11 +156,23 @@ public sealed class RewindSet<T> : ISet<T>, IReadOnlySet<T>
         if (scope is null)
         {
             _items.Clear();
+            if (PropertyChanged is not null)
+            {
+                Raise();
+            }
+
             return;
         }
 
-        scope.Journal.Add(new RestoreEntry(this, _items));
+        Record(scope, new RestoreEntry(this, _items));
         _items = new HashSet<T>(_items.Comparer);
+    }
+
+    void ICollectionNotifier.NotifyReset() => Raise();
+
+    private void Raise()
+    {
+        PropertyChanged?.Invoke(this, CollectionNotifications.Count);
     }
 
     /// <summary>Adds every element of <paramref name="other"/> the set does not hold. A rollback removes exactly those, with one entry.</summary>
@@ -286,7 +348,14 @@ public sealed class RewindSet<T> : ISet<T>, IReadOnlySet<T>
         }
 
         _version++;
-        ScopeContext.Current?.Journal.Add(new BulkEntry(this, added, removed));
+        if (ScopeContext.Current is { } scope)
+        {
+            Record(scope, new BulkEntry(this, added, removed));
+        }
+        else if (PropertyChanged is not null)
+        {
+            Raise();
+        }
     }
 
     private void ThrowIfModified(int version)
@@ -385,7 +454,7 @@ public sealed class RewindSet<T> : ISet<T>, IReadOnlySet<T>
         public override void UndoRecorded()
         {
             Undo();
-            ScopeContext.Current?.Journal.Add(new BulkEntry(set, removed, added));
+            set.RecordInCurrentScope(new BulkEntry(set, removed, added));
         }
     }
 
@@ -399,7 +468,7 @@ public sealed class RewindSet<T> : ISet<T>, IReadOnlySet<T>
 
         public override void UndoRecorded()
         {
-            ScopeContext.Current?.Journal.Add(new RestoreEntry(set, set._items));
+            set.RecordInCurrentScope(new RestoreEntry(set, set._items));
             set._items = items;
             set._version++;
         }

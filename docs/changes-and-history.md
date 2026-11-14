@@ -64,7 +64,11 @@ A `[Rewindable]` class that implements `INotifyPropertyChanged` — itself, or t
 `ObservableObject` — raises `PropertyChanged` for its tracked properties:
 
 - inside a scope, once per changed property after the outermost scope commits, with the committed state visible and
-  no scope open — never while the scope is open, never for a change that was rolled back;
+  no scope open — never while the scope is open;
+- after a rollback, once per property the rolled-back scope had changed, with the restored value visible and no
+  scope open. Whatever showed the value being undone — a text box bound two ways wrote it there — shows the restored
+  one; a property written and brought back to its value inside the scope is not raised. A nested scope's rollback is
+  raised when its outermost scope ends;
 - with no scope open, at once, when the value changes.
 
 The generated code raises the notification through the class's `OnPropertyChanged(string)`, otherwise its
@@ -89,7 +93,7 @@ try
 }
 catch (InvalidOperationException)
 {
-}
+}                                           // Name = Ana
 
 Rewind.Run(() =>
 {

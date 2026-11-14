@@ -104,6 +104,52 @@ Console.WriteLine(string.Join(",", tags)); // paid
 - A dictionary or set keeps the comparer it was created with, including across `Clear`.
 - `Keys` and `Values` of a dictionary are read-only views that always show its current content.
 
+## Notifications for a UI
+
+`RewindList<T>` implements `INotifyCollectionChanged`, `INotifyPropertyChanged` and the non-generic `IList`, so a
+list, a grid or a combo box bound to it follows it as it follows an `ObservableCollection<T>`, in WPF, Avalonia, MAUI
+and WinUI alike:
+
+- with no scope open, a change is raised at once, with the element and its position (`Add`, `Remove`, `Replace`;
+  several elements added at once and `Clear` are a `Reset`);
+- while a scope is open nothing is raised: a UI never shows a state that may still be rolled back;
+- once the outermost scope commits — or rolls back — a list it changed raises one `Reset`, with no scope open and the
+  final content in place. Undo and redo through `RewindHistory` are scopes, and refresh the same way;
+- each notification is followed by `PropertyChanged` for `Count` when it changed and for the indexer, `Item[]`.
+
+`RewindDictionary<TKey, TValue>` and `RewindSet<T>` raise `PropertyChanged` only — `Count`, and for a dictionary
+`Item[]`, `Keys` and `Values` — at the same moments. They have no positions to report, and UI frameworks only follow
+the changes of a source that is a list; to show their content in a list, project it into a `RewindList<T>`.
+
+```csharp
+using System.Collections.Specialized;
+using ViShap.Rewind;
+
+var cart = new RewindList<string>();
+cart.CollectionChanged += (_, e) => Console.WriteLine($"{e.Action}: {string.Join(",", cart)}");
+
+cart.Add("pen");                                   // Add: pen
+
+try
+{
+    Rewind.Run(() =>
+    {
+        cart.Add("book");
+        cart.Add("lamp");
+        throw new InvalidOperationException("Out of stock");
+    });
+}
+catch (InvalidOperationException)
+{
+}                                                  // Reset: pen
+
+Rewind.Run(() =>
+{
+    cart.Add("book");
+    cart.Remove("pen");
+});                                                // Reset: book
+```
+
 ## Enumeration and threads
 
 Mutating a collection while enumerating it throws `InvalidOperationException`, as for the BCL collections — and so

@@ -114,14 +114,14 @@ using ViShap.Rewind;
 
 Rewind.Run(outer =>
 {
-    outer.AfterCommit(() => Console.WriteLine("Outer committed")); // Outer committed
+    outer.AfterCommit(() => Console.WriteLine("Outer committed"));
 
     try
     {
         Rewind.Run(inner =>
         {
             inner.AfterCommit(() => Console.WriteLine("Never printed"));
-            inner.AfterRollback(() => Console.WriteLine("Inner rolled back")); // Inner rolled back
+            inner.AfterRollback(() => Console.WriteLine("Inner rolled back"));
             throw new InvalidOperationException();
         });
     }
@@ -129,6 +129,9 @@ Rewind.Run(outer =>
     {
     }
 });
+
+// Inner rolled back   — at once, when the inner scope rolls back
+// Outer committed     — once the outermost scope commits
 ```
 
 ## What runs with no current scope

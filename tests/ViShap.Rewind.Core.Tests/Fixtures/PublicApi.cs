@@ -89,7 +89,8 @@ public static class PublicApi
         }
 
         var inherited = type.BaseType?.GetInterfaces() ?? [];
-        var declared = type.GetInterfaces().Where(candidate => !inherited.Contains(candidate)).ToList();
+        // An internal interface a public type implements is no part of what a consumer can see or use.
+        var declared = type.GetInterfaces().Where(candidate => !inherited.Contains(candidate) && candidate.IsVisible).ToList();
         var indirect = declared.SelectMany(candidate => candidate.GetInterfaces()).ToHashSet();
         bases.AddRange(declared
             .Where(candidate => !indirect.Contains(candidate))
@@ -158,6 +159,11 @@ public static class PublicApi
                 ? property.Name
                 : $"this[{string.Join(", ", indexParameters.Select(parameter => $"{TypeName(parameter.ParameterType, context.Create(parameter))} {parameter.Name}"))}]";
             yield return $"{Modifiers(accessor, implicitStatic)}{TypeName(property.PropertyType, context.Create(property))} {name} {accessors}";
+        }
+
+        foreach (var @event in type.GetEvents(Declared).Where(@event => @event.AddMethod is { } adder && IsVisible(adder)))
+        {
+            yield return $"{Modifiers(@event.AddMethod!, implicitStatic)}event {TypeName(@event.EventHandlerType!, context.Create(@event))} {@event.Name}";
         }
 
         foreach (var method in type.GetMethods(Declared).Where(method => IsVisible(method) && !method.IsSpecialName))

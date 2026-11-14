@@ -37,9 +37,12 @@ Rewind.Run(scope =>
 {
     stock.Value -= 1;
     scope.AfterCommit(() => Console.WriteLine("Reserved"));          // runs only if the change is kept
-    scope.Effect(@do: () => Console.WriteLine("Hold placed"),
+    scope.Effect(@do: () => Console.WriteLine("Hold placed"),        // runs now
                  undo: () => Console.WriteLine("Hold released"));    // undone if the change is not kept
 });
+
+// Hold placed
+// Reserved
 ```
 
 Files written, copied or deleted with `RewindFile` change at once and are put back if the block fails.

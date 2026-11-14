@@ -405,6 +405,99 @@ public sealed class RewindFileTests : IDisposable
         Assert.Equal(mode, File.GetUnixFileMode(path));
     }
 
+    [Fact]
+    public void WriteAllText_ThroughSymbolicLink_WritesTheLinkedFileAndKeepsTheLink()
+    {
+        var real = Existing("real.json", "old");
+        if (Link("link.json", real) is not { } link)
+        {
+            return;
+        }
+
+        Rewind.Run(() => RewindFile.WriteAllText(link, "new"));
+
+        Assert.Equal("new", File.ReadAllText(real));
+        Assert.NotNull(new FileInfo(link).LinkTarget);
+        Assert.Empty(_directory.SideFiles());
+    }
+
+    [Fact]
+    public void WriteAllText_ThroughSymbolicLinkRolledBack_LinkedFileRestoredLinkKept()
+    {
+        var real = Existing("real.json", "old");
+        if (Link("link.json", real) is not { } link)
+        {
+            return;
+        }
+
+        RollBack(() => RewindFile.WriteAllText(link, "new"));
+
+        Assert.Equal("old", File.ReadAllText(real));
+        Assert.NotNull(new FileInfo(link).LinkTarget);
+        Assert.Empty(_directory.SideFiles());
+    }
+
+    [Fact]
+    public void WriteAllText_ThroughSymbolicLinkWithNoScope_WritesTheLinkedFile()
+    {
+        var real = Existing("real.json", "old");
+        if (Link("link.json", real) is not { } link)
+        {
+            return;
+        }
+
+        RewindFile.WriteAllText(link, "new");
+
+        Assert.Equal("new", File.ReadAllText(real));
+        Assert.NotNull(new FileInfo(link).LinkTarget);
+    }
+
+    [Fact]
+    public void Copy_OverSymbolicLink_ReplacesTheLinkedFile()
+    {
+        var real = Existing("real.json", "old");
+        var source = Existing("source.json", "copied");
+        if (Link("link.json", real) is not { } link)
+        {
+            return;
+        }
+
+        Rewind.Run(() => RewindFile.Copy(source, link, overwrite: true));
+
+        Assert.Equal("copied", File.ReadAllText(real));
+        Assert.NotNull(new FileInfo(link).LinkTarget);
+    }
+
+    [Fact]
+    public void Delete_SymbolicLinkRolledBack_TheLinkComesBackAndTheLinkedFileIsUntouched()
+    {
+        var real = Existing("real.json", "old");
+        if (Link("link.json", real) is not { } link)
+        {
+            return;
+        }
+
+        RollBack(() => RewindFile.Delete(link));
+
+        Assert.NotNull(new FileInfo(link).LinkTarget);
+        Assert.Equal("old", File.ReadAllText(real));
+    }
+
+    /// <summary>A symbolic link to <paramref name="target"/>, or <see langword="null"/> where the system does not let this user create one.</summary>
+    private string? Link(string name, string target)
+    {
+        var link = _directory.File(name);
+        try
+        {
+            File.CreateSymbolicLink(link, target);
+            return link;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
     private string Existing(string name, string content)
     {
         var path = _directory.File(name);
