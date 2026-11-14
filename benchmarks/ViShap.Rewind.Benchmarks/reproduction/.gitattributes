@@ -1,0 +1,2 @@
+# The reproduction check runs under bash in a Linux container, which a carriage return breaks
+*.sh text eol=lf

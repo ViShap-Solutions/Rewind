@@ -6,7 +6,6 @@ namespace ViShap.Rewind.Benchmarks.Suites;
 /// W2, W3 — a scope with N writes, then commit or rollback; the writes go to N distinct cells or N times to one cell.
 /// Each invocation opens and closes its own scope.
 /// </summary>
-[Config(typeof(TrackAConfig))]
 public class ScopeWriteBenchmarks
 {
     private RewindCell<int>[] _cells = [];

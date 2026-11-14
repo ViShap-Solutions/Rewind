@@ -6,7 +6,6 @@ namespace ViShap.Rewind.Benchmarks.Suites;
 /// W6 — K effects registered in a scope: <c>AfterCommit</c> run after the commit, <c>Effect</c> committed, and
 /// <c>Effect</c> compensated by a rollback. The actions are static and count into a field.
 /// </summary>
-[Config(typeof(TrackAConfig))]
 public class EffectBenchmarks
 {
     private static readonly Action s_increment = static () => s_counter++;

@@ -1,9 +1,13 @@
 using BenchmarkDotNet.Attributes;
+using ViShap.Rewind.Benchmarks.Config;
 
 namespace ViShap.Rewind.Benchmarks.Suites;
 
-/// <summary>The cost of a tracked write: with no scope, in a scope that commits, in a scope that rolls back.</summary>
-[MemoryDiagnoser]
+/// <summary>
+/// W9, W10 — the cost of a tracked write: with no scope, in a scope that commits, in a scope that rolls back. Measured
+/// under BenchmarkDotNet's default job, so its cells stay comparable with the findings recorded against them.
+/// </summary>
+[KeepsDefaultJob]
 public class CellWriteBenchmarks
 {
     private RewindCell<int> _cell = null!;

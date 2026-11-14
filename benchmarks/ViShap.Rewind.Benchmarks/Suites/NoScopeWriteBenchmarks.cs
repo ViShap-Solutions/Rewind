@@ -3,7 +3,6 @@ using BenchmarkDotNet.Attributes;
 namespace ViShap.Rewind.Benchmarks.Suites;
 
 /// <summary>W1 — a write with no current scope (INV-01), for a value type and a reference type, against a plain field.</summary>
-[Config(typeof(TrackAConfig))]
 public class NoScopeWriteBenchmarks
 {
     private readonly RewindCell<int> _number = new(0);

@@ -3,7 +3,6 @@ using BenchmarkDotNet.Attributes;
 namespace ViShap.Rewind.Benchmarks.Suites;
 
 /// <summary>W7 — M mutations of a Rewind collection in a scope, then commit or rollback, against <see cref="List{T}"/>.</summary>
-[Config(typeof(TrackAConfig))]
 public class CollectionBenchmarks
 {
     private readonly List<int> _plainList = [];
@@ -69,7 +68,6 @@ public class CollectionBenchmarks
 }
 
 /// <summary>W7 — the rollback of one <c>Clear</c> in a scope, against the size of the cleared list (contract §8.3).</summary>
-[Config(typeof(TrackAConfig))]
 public class ClearRollbackBenchmarks
 {
     private RewindList<int> _list = [];
