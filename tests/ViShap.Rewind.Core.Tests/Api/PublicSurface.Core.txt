@@ -1,0 +1,150 @@
+static class Rewind
+    RewindScope? Current { get; }
+    RewindScope Begin()
+    void Run(Action action)
+    void Run(Action<RewindScope> action)
+    void Run<TState>(TState state, Action<TState> action)
+    void Run<TOperation>(TOperation operation) where TOperation : IRewindOperation
+    TResult Run<TResult>(Func<TResult> func)
+    TResult Run<TResult>(Func<RewindScope, TResult> func)
+    Task RunAsync(Func<Task> func)
+    Task RunAsync(Func<RewindScope, Task> func)
+    Task<TResult> RunAsync<TResult>(Func<Task<TResult>> func)
+    Task<TResult> RunAsync<TResult>(Func<RewindScope, Task<TResult>> func)
+sealed class RewindScope : IDisposable
+    int Depth { get; }
+    bool IsActive { get; }
+    void AfterCommit(Action action)
+    void AfterRollback(Action action)
+    void OnCommitted(Action<ChangeSet> action)
+    void Effect(Action do, Action undo)
+    void Commit()
+    void Dispose()
+interface IRewindOperation
+    void Execute()
+sealed class RewindCell<T>
+    RewindCell()
+    RewindCell(T value)
+    T Value { get; set; }
+    string ToString()
+abstract class RewindException : Exception
+sealed class RewindScopeException : RewindException
+    RewindScopeException(string message)
+sealed class RewindCompensationException : RewindException
+    RewindCompensationException(Exception? originalException, IReadOnlyList<Exception> failures)
+    Exception? OriginalException { get; }
+    IReadOnlyList<Exception> Failures { get; }
+sealed class RewindEffectException : RewindException
+    RewindEffectException(IReadOnlyList<Exception> failures)
+    IReadOnlyList<Exception> Failures { get; }
+sealed class RewindList<T> : IList, IList<T>, INotifyCollectionChanged, INotifyPropertyChanged, IReadOnlyList<T>
+    RewindList()
+    RewindList(IEnumerable<T> collection)
+    int Count { get; }
+    T this[int index] { get; set; }
+    event NotifyCollectionChangedEventHandler? CollectionChanged
+    event PropertyChangedEventHandler? PropertyChanged
+    void Add(T item)
+    void AddRange(IEnumerable<T> collection)
+    void Insert(int index, T item)
+    void RemoveAt(int index)
+    bool Remove(T item)
+    void Clear()
+    bool Contains(T item)
+    int IndexOf(T item)
+    void CopyTo(T[] array, int arrayIndex)
+    RewindList<T>.Enumerator GetEnumerator()
+struct RewindList<T>.Enumerator : IEnumerator<T>
+    T Current { get; }
+    bool MoveNext()
+    void Dispose()
+sealed class RewindDictionary<TKey, TValue> : IDictionary<TKey, TValue>, INotifyPropertyChanged, IReadOnlyDictionary<TKey, TValue>
+    RewindDictionary()
+    RewindDictionary(IEqualityComparer<TKey>? comparer)
+    RewindDictionary(IEnumerable<KeyValuePair<TKey, TValue>> collection)
+    RewindDictionary(IEnumerable<KeyValuePair<TKey, TValue>> collection, IEqualityComparer<TKey>? comparer)
+    IEqualityComparer<TKey> Comparer { get; }
+    int Count { get; }
+    ICollection<TKey> Keys { get; }
+    ICollection<TValue> Values { get; }
+    TValue this[TKey key] { get; set; }
+    event PropertyChangedEventHandler? PropertyChanged
+    void Add(TKey key, TValue value)
+    bool TryAdd(TKey key, TValue value)
+    bool Remove(TKey key)
+    bool Remove(TKey key, out TValue value)
+    void Clear()
+    bool ContainsKey(TKey key)
+    bool TryGetValue(TKey key, out TValue value)
+    RewindDictionary<TKey, TValue>.Enumerator GetEnumerator()
+struct RewindDictionary<TKey, TValue>.Enumerator : IEnumerator<KeyValuePair<TKey, TValue>>
+    KeyValuePair<TKey, TValue> Current { get; }
+    bool MoveNext()
+    void Dispose()
+sealed class RewindSet<T> : INotifyPropertyChanged, IReadOnlySet<T>, ISet<T>
+    RewindSet()
+    RewindSet(IEqualityComparer<T>? comparer)
+    RewindSet(IEnumerable<T> collection)
+    RewindSet(IEnumerable<T> collection, IEqualityComparer<T>? comparer)
+    IEqualityComparer<T> Comparer { get; }
+    int Count { get; }
+    event PropertyChangedEventHandler? PropertyChanged
+    bool Add(T item)
+    bool Remove(T item)
+    void Clear()
+    void UnionWith(IEnumerable<T> other)
+    void IntersectWith(IEnumerable<T> other)
+    void ExceptWith(IEnumerable<T> other)
+    void SymmetricExceptWith(IEnumerable<T> other)
+    bool Contains(T item)
+    bool IsSubsetOf(IEnumerable<T> other)
+    bool IsProperSubsetOf(IEnumerable<T> other)
+    bool IsSupersetOf(IEnumerable<T> other)
+    bool IsProperSupersetOf(IEnumerable<T> other)
+    bool Overlaps(IEnumerable<T> other)
+    bool SetEquals(IEnumerable<T> other)
+    void CopyTo(T[] array, int arrayIndex)
+    RewindSet<T>.Enumerator GetEnumerator()
+struct RewindSet<T>.Enumerator : IEnumerator<T>
+    T Current { get; }
+    bool MoveNext()
+    void Dispose()
+sealed class RewindableAttribute : Attribute
+    RewindableAttribute()
+sealed class RewindIgnoreAttribute : Attribute
+    RewindIgnoreAttribute()
+static class ViShap.Rewind.Contracts.RewindProperty
+    void Write<TOwner, T>(TOwner owner, ref T field, ref long epoch, T value, RewindPropertyInfo<TOwner, T> property) where TOwner : class
+    void WriteAndNotify<TOwner, T>(TOwner owner, ref T field, ref long epoch, T value, RewindPropertyInfo<TOwner, T> property) where TOwner : class
+sealed class ViShap.Rewind.Contracts.RewindPropertyInfo<TOwner, T>
+    RewindPropertyInfo(string name, Func<TOwner, T> get, Action<TOwner, T> set)
+    RewindPropertyInfo(string name, Func<TOwner, T> get, Action<TOwner, T> set, Action<TOwner> notify)
+    string Name { get; }
+sealed class ChangeSet
+    IReadOnlyList<Change> Changes { get; }
+    bool IsEmpty { get; }
+sealed class Change
+    object Owner { get; }
+    string? Member { get; }
+    object? OldValue { get; }
+    object? NewValue { get; }
+static class RewindDiagnostics
+    const string MeterName
+    const string ActivitySourceName
+sealed class RewindHistory
+    RewindHistory()
+    bool CanUndo { get; }
+    bool CanRedo { get; }
+    void Run(Action action)
+    void Run(Action<RewindScope> action)
+    void Undo()
+    void Redo()
+    void Clear()
+static class RewindFile
+    void WriteAllBytes(string path, byte[] bytes)
+    void WriteAllText(string path, string? contents)
+    void WriteAllText(string path, string? contents, Encoding encoding)
+    void Write(string path, Action<Stream> write)
+    void Copy(string sourceFileName, string destFileName)
+    void Copy(string sourceFileName, string destFileName, bool overwrite)
+    void Delete(string path)

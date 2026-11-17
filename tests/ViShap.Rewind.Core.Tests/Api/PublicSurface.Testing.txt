@@ -1,0 +1,11 @@
+static class ViShap.Rewind.Testing.RewindVerify
+    void Rollback<TState>(Action operation, Func<TState> capture)
+    void Rollback<TState>(Action operation, Func<TState> capture, IEqualityComparer<TState> comparer)
+    Task RollbackAsync<TState>(Func<Task> operation, Func<TState> capture)
+    Task RollbackAsync<TState>(Func<Task> operation, Func<TState> capture, IEqualityComparer<TState> comparer)
+    void Retries<TResult, TState>(Func<TResult> operation, int times, Func<TState> capture)
+    Task RetriesAsync<TResult, TState>(Func<Task<TResult>> operation, int times, Func<TState> capture)
+sealed class ViShap.Rewind.Testing.RewindVerificationException : Exception
+    int FailurePoint { get; }
+    int FailurePointCount { get; }
+    string? Point { get; }
